@@ -212,6 +212,6 @@ Please do not report security issues in public issues. Use [GitHub's private vul
 
 Stempel is developed and maintained by **[app & simple](https://app-simple.de)**, a software studio in Hutthurm near Passau and the company behind **[Vereinscockpit](https://vereinscockpit.com)**.
 
-Vereinscockpit is cloud-based club management software ("Vereinssoftware in der Cloud"). Clubs use it to manage members, billing and organisation in the browser: sports clubs, fire brigades, music and shooting clubs, support associations, umbrella organisations and other non-profits.
+Vereinscockpit is cloud-based club management software ("[Vereinssoftware in der Cloud](https://vereinscockpit.com)"). Clubs use it to manage members, billing and organisation in the browser: sports clubs, fire brigades, music and shooting clubs, support associations, umbrella organisations and other non-profits.
 
 👉 Running a club? Have a look at **[vereinscockpit.com](https://vereinscockpit.com)**.
