@@ -1,0 +1,20 @@
+{
+  "name": "time-rules",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/time-rules/src",
+  "projectType": "library",
+  "tags": ["type:rules"],
+  "// targets": "to see all targets run: nx show project time-rules --web",
+  "targets": {
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "tsc --noEmit -p libs/time-rules/tsconfig.lib.json",
+          "tsc --noEmit -p libs/time-rules/tsconfig.spec.json"
+        ],
+        "parallel": false
+      }
+    }
+  }
+}

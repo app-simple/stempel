@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body>
+<title>Zeit &amp; Urlaub Prototyp</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: Arbeitswerkzeug. Kopfzeile, links die Bereiche, rechts die Arbeitsfläche. Zeiten stehen in Mono, damit Spalten fluchten. */
+:root{
+  --bg:#f2f5f4; --surface:#ffffff; --surface-2:#e8eeec; --line:#d2dbd8; --fg:#15201d; --muted:#586964;
+  --accent:#0b6e63; --accent-fg:#ffffff; --accent-soft:#d5ebe7;
+  --ok:#1c7439; --ok-soft:#ddf0e2; --warn:#8f5400; --warn-soft:#fbebcb; --crit:#b3261e; --crit-soft:#f9dcd9; --info:#2a5d9f; --info-soft:#dce8f8;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1514; --surface:#17201f; --surface-2:#202b29; --line:#2e3c39; --fg:#e5eeeb; --muted:#93a39e;
+  --accent:#4fc4b4; --accent-fg:#06211d; --accent-soft:#163833;
+  --ok:#6fcf8b; --ok-soft:#163221; --warn:#f0b455; --warn-soft:#392b0f; --crit:#ff8a80; --crit-soft:#401f1c; --info:#8ab6ee; --info-soft:#1a2b43; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f1514; --surface:#17201f; --surface-2:#202b29; --line:#2e3c39; --fg:#e5eeeb; --muted:#93a39e;
+  --accent:#4fc4b4; --accent-fg:#06211d; --accent-soft:#163833;
+  --ok:#6fcf8b; --ok-soft:#163221; --warn:#f0b455; --warn-soft:#392b0f; --crit:#ff8a80; --crit-soft:#401f1c; --info:#8ab6ee; --info-soft:#1a2b43; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--sans)}
+.app{max-width:1240px;margin-inline:auto;padding-inline:16px;padding-block:0 56px;display:grid;grid-template-columns:200px minmax(0,1fr);grid-template-areas:"top top" "nav main";gap:20px 28px}
+.top{grid-area:top;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;padding-block:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand b{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.brand span{font:12px var(--mono);color:var(--muted)}
+.who{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+.nav{grid-area:nav;display:flex;flex-direction:column;gap:2px;align-self:start;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+.nav button{font:inherit;color:var(--muted);background:none;border:0;border-radius:5px;padding:8px 10px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.nav button:hover{background:var(--surface-2);color:var(--fg)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--fg);font-weight:600}
+.count{font:500 12px var(--mono);background:var(--crit);color:var(--surface);border-radius:99px;padding:0 7px}
+main{grid-area:main;min-width:0;display:flex;flex-direction:column;gap:20px}
+@media (max-width:820px){
+  .app{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "nav" "main";gap:14px}
+  .nav{flex-direction:row;overflow-x:auto;position:static;padding-bottom:4px}
+  .nav button{white-space:nowrap}
+}
+h1{font-size:24px;font-weight:600;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h2{font-size:16px;font-weight:600;margin:0}
+.lead{color:var(--muted);margin:4px 0 0;max-width:68ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.between{justify-content:space-between}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.tile{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.tile small,.lbl{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tile b{font:500 22px var(--mono);font-variant-numeric:tabular-nums}
+.tile b.neg{color:var(--crit)}
+.clock{font:500 clamp(40px,9vw,60px)/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.btn{font:500 14px var(--sans);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:8px 14px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.danger{color:var(--crit);border-color:var(--crit)}
+.btn.big{font-size:16px;padding:12px 22px}
+.btn.sm{font-size:13px;padding:4px 10px}
+:is(button,select,input,textarea):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select,input,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:7px 9px;max-width:100%}
+textarea{width:100%;min-height:64px;resize:vertical}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px;align-items:end}
+.fields label,.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.fields .wide{grid-column:1/-1}
+.days{display:flex;flex-wrap:wrap;gap:6px}
+.days label{flex-direction:row;align-items:center;gap:4px;border:1px solid var(--line);border-radius:5px;padding:5px 8px;color:var(--fg)}
+.card.note{border-color:var(--warn);background:var(--warn-soft)}
+.err{color:var(--crit);font-size:13.5px;font-weight:500}
+.err:empty{display:none}
+.hint{background:var(--surface-2);border-radius:5px;padding:10px 12px;font-size:13.5px}
+.scroll{overflow-x:auto;min-width:0}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+th.num{font-family:var(--sans)}
+tr.sum td{font-weight:600;border-top:2px solid var(--line)}
+tr.dim td{color:var(--muted)}
+tr.now td{background:var(--accent-soft)}
+.pill{display:inline-flex;gap:6px;align-items:baseline;padding:1px 9px;border-radius:99px;font-size:12.5px;font-weight:500;margin:1px 4px 1px 0}
+.pill .par{font:11px var(--mono);opacity:.85;white-space:nowrap}
+.lv-crit{background:var(--crit-soft);color:var(--crit)} .lv-warn{background:var(--warn-soft);color:var(--warn)}
+.lv-info{background:var(--info-soft);color:var(--info)} .lv-ok{background:var(--ok-soft);color:var(--ok)} .lv-mute{background:var(--surface-2);color:var(--muted)}
+.meter{display:flex;flex-direction:column;gap:5px}
+.bar{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px}
+.bar i.ok{background:var(--ok)} .bar i.warn{background:var(--warn)} .bar i.crit{background:var(--crit)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{font:500 14px var(--sans);background:none;border:1px solid transparent;border-radius:5px;padding:6px 12px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);border-color:var(--line);color:var(--fg)}
+.cal{width:auto;min-width:100%}
+.cal th,.cal td{padding:0;border-bottom:1px solid var(--line)}
+.cal th.d{text-align:center;min-width:27px;padding:4px 0;font:11px var(--mono);letter-spacing:0;text-transform:none}
+.cal th.d b{display:block;font-weight:500;color:var(--fg);font-size:12.5px}
+.cal td.d{height:32px;border-left:1px solid var(--line)}
+.cal .n{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;white-space:nowrap;padding:4px 14px 4px 0;font-size:13.5px}
+.cal .we{background:var(--surface-2)} .cal .hol{background:var(--info-soft)}
+.cal td.off{background:repeating-linear-gradient(135deg,transparent 0 4px,var(--surface-2) 4px 6px)}
+.cal .today{box-shadow:inset 2px 0 0 var(--fg),inset -2px 0 0 var(--fg)}
+.cal td.an{background:var(--warn-soft);color:var(--warn);text-align:center;font:500 12.5px var(--mono)}
+.cal i{display:block;height:16px}
+.cal i.ap{background:var(--accent)} .cal i.op{background:var(--accent-soft);border-block:2px dashed var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.legend i{display:inline-block;width:18px;height:12px;border:1px solid var(--line)}
+.req{border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 20px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:6px;max-width:min(92vw,560px);font-size:14px;z-index:5}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><b>Zeit &amp; Urlaub</b><span>Company OS · Prototyp mit Beispieldaten · Demo-Datum 12.10.2026</span></div>
+    <div class="who"><label for="userSel">Angemeldet als</label><select id="userSel" data-chg="user"></select><span id="roleTag"></span></div>
+  </header>
+  <nav class="nav" id="nav" aria-label="Bereiche"></nav>
+  <main id="main"></main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+/* ---------- Helfer ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const D=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=D(s);d.setDate(d.getDate()+n);return iso(d)};
+const diffDays=(a,b)=>Math.round((D(b)-D(a))/864e5);
+const wd=s=>D(s).getDay()||7;
+const WD=['','Mo','Di','Mi','Do','Fr','Sa','So'];
+const MON=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const fmtD=s=>`${s.slice(8)}.${s.slice(5,7)}.`;
+const fmtDY=s=>`${fmtD(s)}${s.slice(0,4)}`;
+const fmtDL=s=>`${WD[wd(s)]} ${fmtD(s)}`;
+const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m};
+const fromMin=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const hm=m=>{const s=m<0?'−':'';m=Math.abs(Math.round(m));return `${s}${Math.floor(m/60)}:${pad(m%60)}`};
+const eur=x=>x.toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const num=x=>String(x).replace('.',',');
+const mondayOf=s=>addDays(s,1-wd(s));
+const isoWeek=s=>{const d=D(addDays(s,4-wd(s)));return Math.ceil((Math.round((d-new Date(d.getFullYear(),0,1))/864e5)+1)/7)};
+const nowHM=()=>{const d=new Date();return `${pad(d.getHours())}:${pad(d.getMinutes())}`};
+
+/* ---------- Gesetzliche Werte (in der echten Anwendung als Daten mit Gültigkeitsdatum) ---------- */
+const TODAY='2026-10-12', YEAR=2026, LIMIT=603, MINWAGE=13.9;
+function easter(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mo=Math.floor((h+l-7*m+114)/31),da=((h+l-7*m+114)%31)+1;return iso(new Date(y,mo-1,da))}
+const holCache={};
+function holidays(y){ if(holCache[y])return holCache[y]; const e=easter(y); return holCache[y]={
+  [`${y}-01-01`]:'Neujahr',[`${y}-01-06`]:'Heilige Drei Könige',[addDays(e,-2)]:'Karfreitag',[addDays(e,1)]:'Ostermontag',
+  [`${y}-05-01`]:'Tag der Arbeit',[addDays(e,39)]:'Christi Himmelfahrt',[addDays(e,50)]:'Pfingstmontag',[addDays(e,60)]:'Fronleichnam',
+  [`${y}-08-15`]:'Mariä Himmelfahrt',[`${y}-10-03`]:'Tag der Deutschen Einheit',[`${y}-11-01`]:'Allerheiligen',
+  [`${y}-12-25`]:'1. Weihnachtstag',[`${y}-12-26`]:'2. Weihnachtstag'} }
+const hol=s=>holidays(+s.slice(0,4))[s];
+
+/* ---------- Beispieldaten ---------- */
+const TYPES={vollzeit:'Vollzeit',teilzeit:'Teilzeit',minijob:'Minijob'};
+const ROLES={admin:'Admin',lead:'Vorgesetzte/r',ma:'Mitarbeiter/in'};
+let employees=[
+ {id:'e1',name:'Katharina Brandl',func:'Geschäftsführung',role:'admin',leadId:null,type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:'2015-03-01'},
+ {id:'e2',name:'Tobias Lechner',func:'Teamleitung Entwicklung',role:'lead',leadId:'e1',type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:'2017-09-01'},
+ {id:'e3',name:'Miriam Stadler',func:'Teamleitung Service',role:'lead',leadId:'e1',type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:'2018-01-15'},
+ {id:'e4',name:'Jonas Reitberger',func:'Entwicklung',role:'ma',leadId:'e2',type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:2,wage:null,entry:'2020-04-01'},
+ {id:'e5',name:'Elif Aydin',func:'Entwicklung',role:'ma',leadId:'e2',type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:'2021-10-01'},
+ {id:'e6',name:'Sebastian Wolf',func:'Entwicklung',role:'ma',leadId:'e2',type:'teilzeit',weekHours:24,days:[1,2,3],vac:18,carry:0,wage:null,entry:'2022-02-01'},
+ {id:'e7',name:'Lena Hofbauer',func:'Support',role:'ma',leadId:'e3',type:'vollzeit',weekHours:38.5,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:'2019-06-01'},
+ {id:'e8',name:'Marco Pichler',func:'Support',role:'ma',leadId:'e3',type:'teilzeit',weekHours:30,days:[1,2,3,4,5],vac:28,carry:0,wage:null,entry:'2023-03-01'},
+ {id:'m1',name:'Anna Kroiß',func:'Büro',role:'ma',leadId:'e3',type:'minijob',weekHours:8,days:[2,4],vac:8,carry:0,wage:13.9,entry:'2024-05-01'},
+ {id:'m2',name:'Paul Zellner',func:'Softwaretests',role:'ma',leadId:'e2',type:'minijob',weekHours:5,days:[3],vac:4,carry:0,wage:15,entry:'2025-10-01'},
+ {id:'m3',name:'Hannelore Fuchs',func:'Reinigung',role:'ma',leadId:'e1',type:'minijob',weekHours:10.5,days:[1,3,5],vac:12,carry:0,wage:14,entry:'2022-11-01'}
+];
+let seq=1;
+const L=(empId,from,to,status,o={})=>({id:'u'+seq++,empId,from,to,status,note:'',created:addDays(from,-40),by:status==='offen'?null:(emp(empId).leadId||empId),reason:'',...o});
+const emp=id=>employees.find(e=>e.id===id);
+let leaves=[
+ L('e1','2026-08-10','2026-08-21','genehmigt'), L('e1','2026-12-23','2026-12-31','genehmigt'),
+ L('e2','2026-07-27','2026-08-07','genehmigt'), L('e2','2026-11-02','2026-11-06','genehmigt'),
+ L('e3','2026-06-08','2026-06-19','genehmigt'), L('e3','2026-10-26','2026-10-30','offen',{note:'Herbstferien',created:'2026-10-08'}),
+ L('e4','2026-08-03','2026-08-14','genehmigt'), L('e4','2026-10-19','2026-10-23','genehmigt'), L('e4','2026-12-21','2026-12-31','offen',{note:'Zwischen den Jahren',created:'2026-10-09'}),
+ L('e5','2026-05-18','2026-05-29','genehmigt'), L('e5','2026-09-07','2026-09-11','genehmigt'), L('e5','2026-11-02','2026-11-06','offen',{note:'Familienbesuch',created:'2026-10-05'}),
+ L('e6','2026-08-17','2026-08-26','genehmigt'), L('e6','2026-10-12','2026-10-14','genehmigt'),
+ L('e7','2026-07-06','2026-07-17','genehmigt'), L('e7','2026-10-28','2026-10-30','abgelehnt',{reason:'In dieser Woche fehlt bereits ein Kollege im Support, die Erreichbarkeit wäre nicht gesichert.',created:'2026-10-01'}),
+ L('e8','2026-04-07','2026-04-10','genehmigt'), L('e8','2026-10-26','2026-10-30','genehmigt'),
+ L('m1','2026-08-04','2026-08-13','genehmigt'), L('m3','2026-12-21','2026-12-30','offen',{created:'2026-10-10'})
+];
+const notices={e1:'2026-01-12',e2:'2026-01-12',e3:'2026-01-12',e4:'2026-01-12',e5:'2026-01-12',e6:'2026-01-12',e7:'2026-01-12',e8:'2026-01-12',m1:null,m2:null,m3:null};
+
+/* ---------- Fachlogik ---------- */
+const worksOn=(e,d)=>e.days.includes(wd(d))&&!hol(d);
+const leaveOn=(id,d,st)=>leaves.find(l=>l.empId===id&&l.from<=d&&l.to>=d&&(st?l.status===st:l.status!=='abgelehnt'));
+function leaveDays(e,from,to){let n=0;for(let d=from;d<=to;d=addDays(d,1))if(worksOn(e,d))n++;return n}
+function account(e){let taken=0,open=0;for(const l of leaves){if(l.empId!==e.id||+l.from.slice(0,4)!==YEAR)continue;const n=leaveDays(e,l.from,l.to);if(l.status==='genehmigt')taken+=n;else if(l.status==='offen')open+=n}return{taken,open,rest:e.vac+e.carry-taken-open}}
+const minVac=e=>e.days.length*4; /* § 3 BUrlG: 24 Werktage bei 6 Tagen = 4 je Wochenarbeitstag */
+function soll(e,d){if(e.type==='minijob')return null;if(!worksOn(e,d)||leaveOn(e.id,d,'genehmigt'))return 0;return Math.round(e.weekHours*60/e.days.length)}
+let entries=[];
+const entryOn=(id,d)=>entries.find(x=>x.empId===id&&x.date===d);
+const net=en=>toMin(en.end)-toMin(en.start)-en.brk;
+function put(empId,date,start,end,brk,o={}){entries=entries.filter(x=>!(x.empId===empId&&x.date===date));entries.push({id:'t'+seq++,empId,date,start,end,brk,rec:date,src:'Stempeluhr',...o})}
+function entryFlags(en){const f=[];if(!en.end)return f;const e=emp(en.empId),n=net(en);
+  if(n>600)f.push({lv:'crit',t:'Über 10 Std. Arbeitszeit',p:'§ 3 ArbZG'});else if(n>480)f.push({lv:'info',t:'Über 8 Std., Ausgleich nötig',p:'§ 3 ArbZG'});
+  const need=n>540?45:n>360?30:0;if(en.brk<need)f.push({lv:'crit',t:`Pause ${en.brk} statt ${need} Min.`,p:'§ 4 ArbZG'});
+  const prev=entryOn(en.empId,addDays(en.date,-1));if(prev&&prev.end){const rest=1440-toMin(prev.end)+toMin(en.start);if(rest<660)f.push({lv:'crit',t:`Ruhezeit nur ${hm(rest)} Std.`,p:'§ 5 ArbZG'})}
+  if(hol(en.date))f.push({lv:'warn',t:'Feiertagsarbeit',p:'§ 9 ArbZG'});else if(wd(en.date)===7)f.push({lv:'warn',t:'Sonntagsarbeit',p:'§ 9 ArbZG'});
+  if(e.type==='minijob'){const late=diffDays(en.date,en.rec);if(late>7)f.push({lv:'crit',t:`Erst nach ${late} Tagen aufgezeichnet`,p:'§ 17 MiLoG'})}
+  return f}
+function miniMonth(e,ym){const mins=entries.filter(x=>x.empId===e.id&&x.end&&x.date.startsWith(ym)).reduce((s,x)=>s+net(x),0);const sum=mins/60*e.wage;return{mins,sum,pct:sum/LIMIT}}
+function allFlags(ids,since){const out=[];
+  for(const en of entries){if(!ids.includes(en.empId)||en.date<since)continue;for(const f of entryFlags(en))if(f.lv!=='info')out.push({date:en.date,empId:en.empId,...f})}
+  for(const id of ids){const e=emp(id);for(let d=since;d<TODAY;d=addDays(d,1))if(soll(e,d)>0&&!entryOn(id,d))out.push({date:d,empId:id,lv:'warn',t:'Keine Buchung an einem Arbeitstag',p:'Erfassungspflicht'})}
+  return out.sort((a,b)=>b.date.localeCompare(a.date))}
+
+(function seed(){
+  let s=7;const r=()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const vary=[-20,-10,0,0,10];
+  for(const e of employees){if(e.type==='minijob')continue;
+    for(let d='2026-08-31';d<TODAY;d=addDays(d,1)){const so=soll(e,d);if(!so)continue;const st=450+Math.floor(r()*5)*15,w=so+vary[Math.floor(r()*5)],b=w>540?45:w>360?30:0;put(e.id,d,fromMin(st),fromMin(st+w+b),b)}}
+  put('e3','2026-10-07','07:00','18:45',45); put('e3','2026-10-08','05:30','14:15',45); put('e5','2026-10-08','08:00','15:00',0);
+  entries=entries.filter(x=>!(x.empId==='e7'&&x.date==='2026-10-06'));
+  ['09-15','09-17','09-22','09-24','09-29','10-01','10-06','10-08'].forEach((d,i)=>Object.assign(entryOn('e8','2026-'+d),{src:'Nachtrag',recAt:fromMin(600+i*3),reason:'Stempeln vergessen'}));
+  const mj=(id,ds,a,b)=>ds.forEach(d=>put(id,'2026-'+d,a,b,0));
+  mj('m1',['09-01','09-03','09-08','09-10','09-15','09-17','09-18','09-22','09-24','09-29','10-01','10-06','10-08'],'08:30','12:30');
+  mj('m2',['09-02','09-09','09-16','09-23','09-30','10-07'],'14:00','19:00');
+  Object.assign(entryOn('m2','2026-09-30'),{rec:'2026-10-09',src:'Nachtrag',reason:'Stundenzettel zu spät abgegeben'});
+  mj('m3',['09-02','09-04','09-07','09-09','09-11','09-14','09-16','09-18','09-21','09-23','09-25','09-28','09-30','10-02','10-05','10-07','10-09'],'17:00','20:30');
+  put('e1',TODAY,'08:15',null,0); put('e2',TODAY,'07:48',null,0); put('e3',TODAY,'08:30',null,0); put('e4',TODAY,'08:02',null,30); put('e5',TODAY,'09:05',null,0); put('e7',TODAY,'08:00',null,0);
+})();
+
+/* ---------- Zustand ---------- */
+const S={user:'e4',view:'heute',week:mondayOf(TODAY),zeitEmp:'e4',calMonth:'2026-10',uTab:'kalender',fStatus:'alle',fEmp:'alle',editEmp:null,rejectId:null};
+const me=()=>emp(S.user);
+const team=u=>u.role==='admin'?employees:u.role==='lead'?employees.filter(e=>e.id===u.id||e.leadId===u.id):[u];
+const canDecide=(u,l)=>l.empId!==u.id&&(emp(l.empId).leadId===u.id||u.role==='admin');
+const openFor=u=>leaves.filter(l=>l.status==='offen'&&canDecide(u,l));
+const NAV=[['heute','Heute'],['zeiten','Zeiten'],['urlaub','Mein Urlaub'],['genehm','Genehmigungen','lead'],['uebersicht','Urlaubsübersicht'],['mitarbeiter','Mitarbeiter','admin'],['pruef','Prüfungen','lead']];
+const allowed=(u,need)=>!need||u.role==='admin'||(need==='lead'&&u.role==='lead');
+
+/* ---------- Bausteine ---------- */
+const WDL=['','montags','dienstags','mittwochs','donnerstags','freitags','samstags','sonntags'];
+/* Üblicher Beginn: Median der echten Stempelzeiten desselben Wochentags aus acht Wochen. Nachträge zählen nicht mit. */
+function usualStart(e,d){const xs=entries.filter(x=>x.empId===e.id&&x.src==='Stempeluhr'&&x.date<d&&x.date>=addDays(d,-56)&&wd(x.date)===wd(d)).map(x=>toMin(x.start)).sort((a,b)=>a-b);return xs.length>=3?xs[Math.floor(xs.length/2)]:null}
+function lateInfo(x){if(x.src==='Stempeluhr')return null;const days=diffDays(x.date,x.rec);return{days,delay:days===0&&x.recAt?toMin(x.recAt)-toMin(x.start):null}}
+function lateHtml(x){const i=lateInfo(x);if(!i)return'';const by=x.src.startsWith('Nachtrag durch')?' '+x.src.slice(9):'';
+  const t=i.days>0?`Nachgetragen am ${fmtD(x.rec)}`:i.delay!=null?`Nachgetragen um ${x.recAt}, ${hm(i.delay)} Std. nach Beginn`:'Nachgetragen';
+  return `<span class="pill lv-warn" title="${esc(x.reason||'')}">${t}${esc(by)}</span>`}
+function lateStats(ids,since){return ids.map(id=>{const xs=entries.filter(x=>x.empId===id&&x.date>=since),l=xs.filter(x=>x.src!=='Stempeluhr'),ds=l.map(x=>lateInfo(x).delay).filter(v=>v!=null);
+  return{id,n:xs.length,late:l.length,avg:ds.length?ds.reduce((a,b)=>a+b,0)/ds.length:null}}).filter(s=>s.late).sort((a,b)=>b.late/b.n-a.late/a.n)}
+const flagHtml=f=>`<span class="pill lv-${f.lv}">${esc(f.t)} <span class="par">${esc(f.p)}</span></span>`;
+const statusPill=s=>`<span class="pill ${s==='genehmigt'?'lv-ok':s==='offen'?'lv-warn':'lv-crit'}">${s==='offen'?'beantragt':s}</span>`;
+function meterHtml(e,ym){const m=miniMonth(e,ym),lv=m.pct>1?'crit':m.pct>=.9?'warn':'ok';
+  const txt=m.pct>1?'Grenze überschritten. Nur gelegentlich und unvorhersehbar zulässig, sonst endet der Minijob-Status.':m.pct>=.9?'Über 90 % der Grenze.':'Im Rahmen.';
+  return `<div class="meter"><div class="row between small"><span>${MON[+ym.slice(5)-1]}: <span class="mono">${hm(m.mins)}</span> Std. × ${eur(e.wage)} = <b class="mono">${eur(m.sum)}</b></span><span class="muted">Grenze ${eur(LIMIT)}</span></div>
+  <div class="bar"><i class="${lv}" style="width:${Math.min(100,m.pct*100).toFixed(0)}%"></i></div><div class="small"><span class="pill lv-${lv}">${Math.round(m.pct*100)} %</span>${txt}</div></div>`}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,6000)}
+const fail=(f,msg)=>{f.querySelector('.err').textContent=msg};
+const head=(t,l)=>`<div><h1>${t}</h1>${l?`<p class="lead">${l}</p>`:''}</div>`;
+
+/* ---------- Ansicht: Heute ---------- */
+function workedToday(en){if(!en)return 0;const end=en.end?toMin(en.end):Math.max(toMin(nowHM()),toMin(en.start));let b=en.brk;if(en.brkStart)b+=Math.max(0,toMin(nowHM())-toMin(en.brkStart));return Math.max(0,end-toMin(en.start)-b)}
+function vHeute(u){const en=entryOn(u.id,TODAY),st=!en?'none':en.end?'done':en.brkStart?'pause':'work';
+  const msg={none:worksOn(u,TODAY)?'Noch nicht gestempelt.':'Heute ist kein Arbeitstag laut Vertrag.',work:`Anwesend seit ${en?.start} Uhr`,pause:`Pause seit ${en?.brkStart} Uhr`,done:`Erfasst: ${en?.start} bis ${en?.end} Uhr, Pause ${en?.brk} Min.`}[st];
+  const btn={none:'<button class="btn primary big" data-act="kommen">Kommen</button>',work:'<button class="btn big" data-act="pauseStart">Pause beginnen</button><button class="btn primary big" data-act="gehen">Gehen</button>',pause:'<button class="btn primary big" data-act="pauseEnd">Pause beenden</button>',done:''}[st];
+  let ist=0,so=0,saldo=0;for(let i=0;i<7;i++){const d=addDays(mondayOf(TODAY),i),x=entryOn(u.id,d),s=soll(u,d)||0;so+=s;if(d===TODAY)ist+=workedToday(x);else if(x&&x.end){ist+=net(x)}if(d<TODAY)saldo+=(x&&x.end?net(x):0)-s}
+  const acc=account(u),mini=u.type==='minijob';
+  const flags=entries.filter(x=>x.empId===u.id&&x.date>=addDays(TODAY,-14)).flatMap(x=>entryFlags(x).filter(f=>f.lv!=='info').map(f=>({...f,date:x.date}))).sort((a,b)=>b.date.localeCompare(a.date));
+  const lead=u.role!=='ma';
+  const us=usualStart(u,TODAY),due=st==='none'&&worksOn(u,TODAY)&&!leaveOn(u.id,TODAY,'genehmigt')&&us!=null&&toMin(nowHM())>us+15&&!S.snooze;
+  const remind=due?`<section class="card note"><div class="lbl">Erinnerung · kommt auch als Desktop-Benachrichtigung</div><div><b>Du hast heute noch nicht gestempelt.</b><div class="small">${WDL[wd(TODAY)]} beginnst du meist gegen ${fromMin(us)} Uhr. Das leitet das Tool aus deinen bisherigen Stempelzeiten ab.</div></div><div class="row"><button class="btn primary" data-act="kommen">Jetzt stempeln</button><button class="btn" data-act="nav" data-id="zeiten">Bin schon länger da: nachtragen</button><button class="btn" data-act="snooze">Heute nicht erinnern</button></div></section>`:'';
+  const pres=team(u).filter(e=>e.id!==u.id).map(e=>{const x=entryOn(e.id,TODAY);let p;
+    if(leaveOn(e.id,TODAY,'genehmigt'))p='<span class="pill lv-mute">abwesend</span>';
+    else if(x&&!x.end)p=`<span class="pill lv-ok">anwesend${lead?` seit ${x.start}`:''}</span>`;
+    else if(x)p='<span class="pill lv-mute">gegangen</span>';
+    else if(!worksOn(e,TODAY))p='<span class="muted small">kein Arbeitstag</span>';
+    else{const s=usualStart(e,TODAY);p=s!=null&&toMin(nowHM())<=s+15?`<span class="muted small">erwartet gegen ${fromMin(s)}</span>`:`<span class="pill lv-warn">noch nicht gestempelt${s!=null?`, üblich ${fromMin(s)}`:''}</span>`}
+    return `<tr><td>${esc(e.name)}<div class="muted small">${esc(e.func)}</div></td><td>${p}</td></tr>`}).join('');
+  return `${head(`Guten Tag, ${esc(u.name.split(' ')[0])}`,`${fmtDL(TODAY)}${TODAY.slice(0,4)}, Kalenderwoche ${isoWeek(TODAY)}`)}
+  ${remind}<div class="cols">
+    <section class="card"><h2>Stempeluhr</h2>
+      <div class="clock" id="clock">${nowHM()}</div>
+      <div><b>${esc(msg)}</b><div class="muted small">Heute gearbeitet: <span class="mono" id="elapsed">${hm(workedToday(en))}</span> Std.${en&&!en.end?` · Pause bisher ${en.brk} Min.`:''}</div></div>
+      <div class="row">${btn}</div>
+      <p class="muted small" style="margin:0">Vergessen zu stempeln? Unter „Zeiten“ lässt sich ein Tag mit Begründung nachtragen.</p>
+    </section>
+    <section class="card"><h2>${mini?'Mein Monat':'Meine Woche'}</h2>
+      ${mini?meterHtml(u,TODAY.slice(0,7)):`<div class="tiles"><div class="tile"><small>Ist</small><b>${hm(ist)}</b></div><div class="tile"><small>Soll</small><b>${hm(so)}</b></div><div class="tile"><small>Saldo bis gestern</small><b class="${saldo<0?'neg':''}">${saldo>0?'+':''}${hm(saldo)}</b></div></div>`}
+      <div class="tiles"><div class="tile"><small>Resturlaub ${YEAR}</small><b>${acc.rest}</b></div><div class="tile"><small>Beantragt</small><b>${acc.open}</b></div></div>
+      ${flags.length?`<div><div class="lbl" style="margin-bottom:6px">Hinweise der letzten 14 Tage</div>${flags.map(f=>`<div class="small">${fmtDL(f.date)} ${flagHtml(f)}</div>`).join('')}</div>`:'<div class="small muted">Keine Hinweise in den letzten 14 Tagen.</div>'}
+    </section>
+  </div>
+  ${lead?`<section class="card"><h2>Team heute</h2><div class="scroll"><table><tbody>${pres}</tbody></table></div>
+  <p class="muted small" style="margin:0">Diese Liste sehen nur Vorgesetzte für ihr eigenes Team und der Admin. Mitarbeiter sehen keine Stempeldaten von Kollegen.</p></section>`:''}`}
+
+/* ---------- Ansicht: Zeiten ---------- */
+function vZeiten(u){const t=team(u);if(!t.some(e=>e.id===S.zeitEmp))S.zeitEmp=u.id;const e=emp(S.zeitEmp),mini=e.type==='minijob';
+  let sIst=0,sSoll=0,sSaldo=0;const rows=[];
+  for(let i=0;i<7;i++){const d=addDays(S.week,i),x=entryOn(e.id,d),so=soll(e,d),lv=leaveOn(e.id,d,'genehmigt');let cells,fl='';
+    if(x){const n=x.end?net(x):null;if(n!=null){sIst+=n;if(so!=null)sSaldo+=n-so}
+      fl=entryFlags(x).map(flagHtml).join('')+lateHtml(x);
+      cells=`<td class="num">${x.start}</td><td class="num">${x.end||'läuft'}</td><td class="num">${x.brk} Min.</td><td class="num">${n!=null?hm(n):'–'}</td>`}
+    else{const why=hol(d)?esc(hol(d)):lv?'Urlaub':!e.days.includes(wd(d))?'frei':d<TODAY&&so>0?'':'';
+      if(d<TODAY&&so>0){fl='<span class="pill lv-warn">Keine Buchung</span>';sSaldo-=so}
+      cells=`<td colspan="4" class="muted">${why||'–'}</td>`}
+    if(so)sSoll+=so;
+    rows.push(`<tr class="${d===TODAY?'now':!x&&!(d<TODAY&&so>0)?'dim':''}"><td style="white-space:nowrap">${fmtDL(d)}</td>${cells}<td class="num">${so==null?'–':hm(so)}</td><td class="num">${x&&x.end&&so!=null?(net(x)-so>0?'+':'')+hm(net(x)-so):'–'}</td><td>${fl}</td></tr>`)}
+  const own=e.id===u.id;
+  return `${head('Zeiten','Beginn, Ende und Pause je Tag. Jede Buchung wird beim Speichern gegen Arbeitszeit- und Mindestlohngesetz geprüft.')}
+  <section class="card">
+    <div class="row between"><div class="row">
+      ${t.length>1?`<label class="field" for="zeitEmp">Mitarbeiter<select id="zeitEmp" data-chg="zeitEmp">${t.map(x=>`<option value="${x.id}" ${x.id===e.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`:''}
+      <div><b>KW ${isoWeek(S.week)}</b><div class="muted small mono">${fmtD(S.week)} – ${fmtDY(addDays(S.week,6))}</div></div></div>
+      <div class="row"><button class="btn sm" data-act="week" data-id="-7" aria-label="Vorige Woche">← Woche</button><button class="btn sm" data-act="week" data-id="0">Heute</button><button class="btn sm" data-act="week" data-id="7" aria-label="Nächste Woche">Woche →</button></div></div>
+    <div class="scroll"><table><thead><tr><th>Tag</th><th class="num">Kommen</th><th class="num">Gehen</th><th class="num">Pause</th><th class="num">Arbeitszeit</th><th class="num">Soll</th><th class="num">Saldo</th><th>Hinweise</th></tr></thead>
+    <tbody>${rows.join('')}<tr class="sum"><td>Summe</td><td colspan="3"></td><td class="num">${hm(sIst)}</td><td class="num">${mini?'–':hm(sSoll)}</td><td class="num">${mini?'–':(sSaldo>0?'+':'')+hm(sSaldo)}</td><td></td></tr></tbody></table></div>
+    ${mini?meterHtml(e,S.week.slice(0,7)):''}
+    <p class="muted small" style="margin:0">Verstöße sperren die Buchung nicht, weil die tatsächliche Zeit dokumentiert sein muss. Sie erscheinen hier und unter „Prüfungen“.</p>
+  </section>
+  <section class="card"><h2>Zeit nachtragen${own?'':` für ${esc(e.name)}`}</h2>
+    <form id="lateForm" class="fields" novalidate>
+      <label>Datum<input type="date" id="lf-date" max="${TODAY}" value="${entryOn(e.id,TODAY)?addDays(TODAY,-1):TODAY}" required></label>
+      <label>Kommen<input type="time" id="lf-start" value="08:00" required></label>
+      <label>Gehen (heute: leer, wenn noch da)<input type="time" id="lf-end" value="${entryOn(e.id,TODAY)?'16:30':''}"></label>
+      <label>Pause (Min.)<input type="number" id="lf-brk" min="0" step="5" value="30" required></label>
+      <label class="wide">Begründung<input type="text" id="lf-reason" placeholder="z. B. Stempeln vergessen, Außentermin"></label>
+      <div class="wide row"><button class="btn primary">Nachtrag speichern</button><span class="err" role="alert"></span></div>
+    </form>
+    <p class="muted small" style="margin:0">Buchungen werden nie gelöscht. Die Stempeluhr nimmt immer die aktuelle Uhrzeit. Jede von Hand eingetragene Zeit ist ein Nachtrag und wird mit Erfassungszeit, Grund und Person markiert${mini?'. Für Minijobber gilt: spätestens am 7. Kalendertag nach dem Arbeitstag':''}.</p>
+  </section>`}
+
+/* ---------- Ansicht: Mein Urlaub ---------- */
+function accTiles(e){const a=account(e);return `<div class="tiles"><div class="tile"><small>Anspruch ${YEAR}</small><b>${e.vac}</b></div><div class="tile"><small>Übertrag ${YEAR-1}</small><b>${e.carry}</b></div><div class="tile"><small>Genehmigt</small><b>${a.taken}</b></div><div class="tile"><small>Beantragt</small><b>${a.open}</b></div><div class="tile"><small>Rest</small><b class="${a.rest<0?'neg':''}">${a.rest}</b></div></div>`}
+function vUrlaub(u){const mine=leaves.filter(l=>l.empId===u.id).sort((a,b)=>b.from.localeCompare(a.from));
+  return `${head('Mein Urlaub',`Gezählt werden nur deine Arbeitstage (${u.days.map(d=>WD[d]).join(', ')}), ohne Feiertage.`)}
+  ${accTiles(u)}
+  <section class="card"><h2>Urlaub beantragen</h2>
+    <form id="leaveForm" class="fields" novalidate>
+      <label>Erster Urlaubstag<input type="date" id="uf-from" min="${TODAY}" value="${addDays(TODAY,21)}" required></label>
+      <label>Letzter Urlaubstag<input type="date" id="uf-to" min="${TODAY}" value="${addDays(TODAY,25)}" required></label>
+      <label class="wide">Notiz für ${u.leadId?esc(emp(u.leadId).name):'die Akte'} (freiwillig)<input type="text" id="uf-note" maxlength="140"></label>
+      <div class="wide hint" id="leavePrev"></div>
+      <div class="wide row"><button class="btn primary">Antrag stellen</button><span class="err" role="alert"></span></div>
+    </form></section>
+  <section class="card"><h2>Meine Anträge</h2><div class="scroll"><table><thead><tr><th>Zeitraum</th><th class="num">Tage</th><th>Status</th><th>Entscheidung</th><th></th></tr></thead><tbody>
+    ${mine.map(l=>`<tr><td class="mono" style="white-space:nowrap">${fmtD(l.from)} – ${fmtDY(l.to)}</td><td class="num">${leaveDays(u,l.from,l.to)}</td><td>${statusPill(l.status)}</td><td class="small">${l.status==='offen'?'<span class="muted">wartet auf '+esc(emp(u.leadId||u.id).name)+'</span>':esc(emp(l.by).name)}${l.reason?`<div>${esc(l.reason)}</div>`:''}</td><td>${l.status==='offen'?`<button class="btn sm" data-act="withdraw" data-id="${l.id}">Zurückziehen</button>`:''}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Noch keine Anträge.</td></tr>'}
+  </tbody></table></div></section>`}
+function leavePreview(u,from,to){if(!from||!to||from>to)return {ok:false,msg:'Bitte einen gültigen Zeitraum wählen.'};const n=leaveDays(u,from,to),a=account(u);
+  if(!n)return{ok:false,msg:'In diesem Zeitraum liegt keiner deiner Arbeitstage.'};
+  const hs=[];for(let d=from;d<=to;d=addDays(d,1))if(hol(d)&&u.days.includes(wd(d)))hs.push(`${hol(d)} (${fmtD(d)})`);
+  return{ok:n<=a.rest,n,msg:`${n} ${n===1?'Arbeitstag':'Arbeitstage'} Urlaub. Rest danach: ${a.rest-n} ${a.rest-n===1?'Tag':'Tage'}.${hs.length?' Nicht gezählt: '+hs.join(', ')+'.':''}${n>a.rest?' Das übersteigt dein Urlaubskonto.':''}`}}
+
+/* ---------- Ansicht: Genehmigungen ---------- */
+function overlaps(l){return leaves.filter(o=>o.id!==l.id&&o.empId!==l.empId&&o.status!=='abgelehnt'&&o.from<=l.to&&o.to>=l.from)}
+function vGenehm(u){const open=openFor(u),done=leaves.filter(l=>l.status!=='offen'&&l.by===u.id&&l.empId!==u.id&&l.decided).slice(-5).reverse();
+  return `${head('Genehmigungen','Urlaubswünsche sind zu berücksichtigen. Ablehnen geht nur mit Begründung: dringende betriebliche Belange oder vorrangige Wünsche anderer (§ 7 Abs. 1 BUrlG).')}
+  <section class="card"><h2>Offene Anträge (${open.length})</h2>
+  ${open.map(l=>{let ov=overlaps(l);const e=emp(l.empId),n=leaveDays(e,l.from,l.to),a=account(e),age=diffDays(l.created,TODAY);
+    return `<div class="req"><div class="row between"><div><b>${esc(e.name)}</b> <span class="muted small">${esc(e.func)}</span><div class="mono">${fmtDL(l.from)} – ${fmtDL(l.to)}${l.to.slice(0,4)} · ${n} ${n===1?'Tag':'Tage'}</div></div><span class="muted small">gestellt am ${fmtD(l.created)}${age>5?' <span class="pill lv-warn">seit '+age+' Tagen offen</span>':''}</span></div>
+      ${l.note?`<div class="small">Notiz: ${esc(l.note)}</div>`:''}
+      <div class="small">Urlaubskonto nach Genehmigung: <b class="mono">${a.rest}</b> Tage Rest (Anspruch ${e.vac+e.carry}).</div>
+      <div class="small">${(ov=ov.filter(o=>team(u).some(x=>x.id===o.empId))).length?'Gleichzeitig abwesend: '+ov.map(o=>`${esc(emp(o.empId).name)} (${o.status==='offen'?'beantragt':'genehmigt'}, ${fmtD(o.from)}–${fmtD(o.to)})`).join(', '):'<span class="muted">Keine Überschneidung mit anderen Abwesenheiten.</span>'}</div>
+      ${S.rejectId===l.id?`<form id="rejectForm" data-id="${l.id}" class="field" novalidate><label for="rj-reason" class="small muted">Begründung der Ablehnung (sieht der Mitarbeiter)</label><textarea id="rj-reason"></textarea><div class="row"><button class="btn danger">Ablehnung senden</button><button type="button" class="btn" data-act="rejectCancel">Abbrechen</button><span class="err" role="alert"></span></div></form>`
+      :`<div class="row"><button class="btn primary" data-act="approve" data-id="${l.id}">Genehmigen</button><button class="btn danger" data-act="reject" data-id="${l.id}">Ablehnen</button></div>`}</div>`}).join('')||'<p class="muted" style="margin:0">Keine offenen Anträge.</p>'}
+  </section>
+  ${done.length?`<section class="card"><h2>Zuletzt entschieden</h2><div class="scroll"><table><tbody>${done.map(l=>`<tr><td>${esc(emp(l.empId).name)}</td><td class="mono">${fmtD(l.from)} – ${fmtDY(l.to)}</td><td>${statusPill(l.status)}</td><td class="small">${esc(l.reason)}</td></tr>`).join('')}</tbody></table></div></section>`:''}`}
+
+/* ---------- Ansicht: Urlaubsübersicht ---------- */
+const seesOpen=(u,l)=>l.empId===u.id||u.role!=='ma';
+/* Datensparsamkeit: Mitarbeiter sehen von Kollegen nur die Anzahl genehmigter Abwesenheiten im eigenen Team, keine Namen. */
+function anonRow(u,ds,cls){const peers=employees.filter(e=>e.id!==u.id&&(e.leadId===u.leadId||e.id===u.leadId));
+  return `<tr><td class="n muted">Im Team abwesend</td>${ds.map(d=>{const n=peers.filter(p=>worksOn(p,d)&&leaveOn(p.id,d,'genehmigt')).length;return `<td class="d ${cls(d)} ${n?'an':''}" title="${n?n+(n===1?' Person':' Personen')+' im Urlaub':''}">${n||''}</td>`}).join('')}</tr>`}
+function vUebersicht(u){const tabs=[['kalender','Kalender'],['liste','Liste'],['konten','Urlaubskonten']];let body='';
+  if(S.uTab==='kalender'){const[y,m]=S.calMonth.split('-').map(Number),n=new Date(y,m,0).getDate(),ds=Array.from({length:n},(_,i)=>`${S.calMonth}-${pad(i+1)}`);
+    const cls=d=>(hol(d)?'hol ':wd(d)>5?'we ':'')+(d===TODAY?'today':'');
+    body=`<div class="row between"><b>${MON[m-1]} ${y}</b><div class="row"><button class="btn sm" data-act="month" data-id="-1">← Monat</button><button class="btn sm" data-act="month" data-id="0">Heute</button><button class="btn sm" data-act="month" data-id="1">Monat →</button></div></div>
+    <div class="scroll"><table class="cal"><thead><tr><th class="n">Mitarbeiter</th>${ds.map(d=>`<th class="d ${cls(d)}" title="${esc(hol(d)||'')}">${WD[wd(d)]}<b>${+d.slice(8)}</b></th>`).join('')}</tr></thead><tbody>
+    ${(u.role==='ma'?[u]:team(u)).map(e=>`<tr><td class="n">${esc(e.name)}</td>${ds.map(d=>{const l=leaves.find(x=>x.empId===e.id&&x.status!=='abgelehnt'&&x.from<=d&&x.to>=d&&(x.status==='genehmigt'||seesOpen(u,x)));const work=worksOn(e,d);
+      return `<td class="d ${cls(d)} ${!hol(d)&&wd(d)<6&&!e.days.includes(wd(d))?'off':''}" title="${esc(hol(d)||'')}">${l&&work?`<i class="${l.status==='genehmigt'?'ap':'op'}" title="${esc(e.name)}: ${l.status==='genehmigt'?'abwesend':'beantragt'}"></i>`:''}</td>`}).join('')}</tr>`).join('')}${u.role==='ma'?anonRow(u,ds,cls):''}
+    </tbody></table></div>
+    <div class="legend">${u.role==='ma'?'<span><i style="background:var(--warn-soft)"></i>Zahl: Kollegen im Team im Urlaub</span>':''}<span><i style="background:var(--accent)"></i>genehmigt</span><span><i style="background:var(--accent-soft);border:2px dashed var(--accent)"></i>beantragt</span><span><i style="background:var(--info-soft)"></i>Feiertag (Bayern)</span><span><i style="background:var(--surface-2)"></i>Wochenende</span><span><i style="background:repeating-linear-gradient(135deg,transparent 0 4px,var(--surface-2) 4px 6px)"></i>kein Arbeitstag laut Vertrag</span></div>
+    ${u.role==='ma'?'<p class="muted small" style="margin:0">Du siehst deine eigenen Tage und nur die Anzahl der Kollegen aus deinem Team mit genehmigtem Urlaub. Namen und offene Anträge sind nicht sichtbar.</p>':''}`}
+  else if(S.uTab==='liste'){const tids=team(u).map(e=>e.id);let list=leaves.filter(l=>tids.includes(l.empId));
+    if(S.fStatus!=='alle')list=list.filter(l=>l.status===S.fStatus);if(S.fEmp!=='alle')list=list.filter(l=>l.empId===S.fEmp);list.sort((a,b)=>a.from.localeCompare(b.from));
+    body=`<div class="row"><label class="field" for="fStatus">Status<select id="fStatus" data-chg="fStatus">${[['alle','Alle'],['offen','Beantragt'],['genehmigt','Genehmigt'],['abgelehnt','Abgelehnt']].map(([v,t])=>`<option value="${v}" ${S.fStatus===v?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label class="field" for="fEmp">Mitarbeiter<select id="fEmp" data-chg="fEmp"><option value="alle">Alle</option>${team(u).map(e=>`<option value="${e.id}" ${S.fEmp===e.id?'selected':''}>${esc(e.name)}</option>`).join('')}</select></label></div>
+    <div class="scroll"><table><thead><tr><th>Mitarbeiter</th><th>Von</th><th>Bis</th><th class="num">Tage</th><th>Status</th><th>Entschieden von</th></tr></thead><tbody>
+    ${list.map(l=>{const e=emp(l.empId);return `<tr class="${l.to<TODAY?'dim':''}"><td>${esc(e.name)}</td><td class="mono">${fmtDL(l.from)}</td><td class="mono">${fmtDL(l.to)}${l.to.slice(0,4)}</td><td class="num">${leaveDays(e,l.from,l.to)}</td><td>${statusPill(l.status)}</td><td class="small">${l.by?esc(emp(l.by).name):'–'}</td></tr>`}).join('')||'<tr><td colspan="6" class="muted">Keine Einträge für diesen Filter.</td></tr>'}
+    </tbody></table></div>`}
+  else{body=`<div class="scroll"><table><thead><tr><th>Mitarbeiter</th><th class="num">Anspruch</th><th class="num">Übertrag</th><th class="num">Genehmigt</th><th class="num">Beantragt</th><th class="num">Rest</th></tr></thead><tbody>
+    ${team(u).map(e=>{const a=account(e);return `<tr><td>${esc(e.name)}<div class="muted small">${TYPES[e.type]}, ${e.days.length} Tage/Woche</div></td><td class="num">${e.vac}</td><td class="num">${e.carry}</td><td class="num">${a.taken}</td><td class="num">${a.open}</td><td class="num"><b>${a.rest}</b></td></tr>`}).join('')}
+    </tbody></table></div>${u.role==='ma'?'<p class="muted small" style="margin:0">Du siehst nur dein eigenes Konto.</p>':''}`}
+  return `${head('Urlaubsübersicht',u.role==='ma'?'Deine Urlaubstage und wie viele Kollegen aus deinem Team an einem Tag schon fehlen. Namen werden nicht angezeigt.':u.role==='lead'?'Wer aus deinem Team wann nicht da ist. Im Kalender steht nur die Abwesenheit, kein Grund.':'Wer wann nicht da ist. Im Kalender steht nur die Abwesenheit, kein Grund.')}
+  <section class="card"><div class="tabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" aria-selected="${S.uTab===k}" data-act="uTab" data-id="${k}">${t}</button>`).join('')}</div>${body}</section>`}
+
+/* ---------- Ansicht: Mitarbeiter ---------- */
+function empForm(e){const n=!e.id;return `<section class="card"><h2>${n?'Mitarbeiter anlegen':esc(e.name)+' bearbeiten'}</h2>
+  <form id="empForm" class="fields" novalidate>
+    <label>Name<input type="text" id="ef-name" value="${esc(e.name)}" required></label>
+    <label>Funktion<input type="text" id="ef-func" value="${esc(e.func)}"></label>
+    <label>Beschäftigungsart<select id="ef-type">${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${e.type===k?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label>Rolle<select id="ef-role">${Object.entries(ROLES).map(([k,t])=>`<option value="${k}" ${e.role===k?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label>Vorgesetzte/r<select id="ef-lead"><option value="">keine</option>${employees.filter(x=>x.role!=='ma'&&x.id!==e.id).map(x=>`<option value="${x.id}" ${e.leadId===x.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label>
+    <label>Eintritt<input type="date" id="ef-entry" value="${e.entry}"></label>
+    <label>Wochenarbeitszeit (Std.)<input type="number" id="ef-hours" min="1" max="48" step="0.5" value="${e.weekHours}"></label>
+    <div class="field wide">Arbeitstage<div class="days">${[1,2,3,4,5,6].map(d=>`<label><input type="checkbox" id="ef-d${d}" ${e.days.includes(d)?'checked':''}>${WD[d]}</label>`).join('')}</div></div>
+    <label>Jahresurlaub (Tage)<input type="number" id="ef-vac" min="0" max="60" value="${e.vac}"></label>
+    <label>Übertrag Vorjahr (Tage)<input type="number" id="ef-carry" min="0" max="60" value="${e.carry}"></label>
+    <label>Stundenlohn (€, nur Minijob)<input type="number" id="ef-wage" min="0" step="0.05" value="${e.wage??''}"></label>
+    <div class="wide hint" id="empHint"></div>
+    <div class="wide row"><button class="btn primary">Speichern</button><button type="button" class="btn" data-act="empCancel">Abbrechen</button><span class="err" role="alert"></span></div>
+  </form></section>`}
+function readEmp(f){const g=id=>$('#ef-'+id,f).value;return{name:g('name').trim(),func:g('func').trim(),type:g('type'),role:g('role'),leadId:g('lead')||null,entry:g('entry'),weekHours:+g('hours'),days:[1,2,3,4,5,6].filter(d=>$('#ef-d'+d,f).checked),vac:+g('vac'),carry:+g('carry')||0,wage:g('wage')?+g('wage'):null}}
+function empCheck(v){const errs=[],info=[];const mv=v.days.length*4;
+  if(!v.name)errs.push('Name fehlt.');if(!v.days.length)errs.push('Mindestens ein Arbeitstag.');
+  if(v.days.length){info.push(`Soll je Arbeitstag: ${hm(v.weekHours*60/v.days.length)} Std.`);info.push(`Gesetzlicher Mindesturlaub bei ${v.days.length} ${v.days.length===1?'Tag':'Tagen'}/Woche: ${mv} Tage (§ 3 BUrlG).`);
+    if(v.vac<mv)errs.push(`Jahresurlaub liegt unter dem gesetzlichen Minimum von ${mv} Tagen.`);
+    if(v.weekHours/v.days.length>10)errs.push('Mehr als 10 Stunden je Arbeitstag sind nicht zulässig (§ 3 ArbZG).');else if(v.weekHours/v.days.length>8)info.push('Über 8 Stunden je Tag: nur mit Ausgleich auf durchschnittlich 8 Stunden zulässig.')}
+  if(v.weekHours>48)errs.push('Mehr als 48 Wochenstunden sind nicht zulässig.');
+  if(v.type==='minijob'){if(!v.wage)errs.push('Stundenlohn für Minijob fehlt.');else{if(v.wage<MINWAGE)errs.push(`Stundenlohn unter dem Mindestlohn von ${eur(MINWAGE)}.`);
+    const max=LIMIT/v.wage,plan=v.weekHours*13/3;info.push(`Minijob: höchstens ${num(max.toFixed(1))} Std./Monat bei ${eur(v.wage)}. Geplant sind rund ${num(plan.toFixed(1))} Std./Monat (${eur(plan*v.wage)}).`);
+    if(plan*v.wage>LIMIT)errs.push(`Die Wochenarbeitszeit führt über die Minijob-Grenze von ${eur(LIMIT)}.`)}}
+  return{errs,info}}
+function vMitarbeiter(u){const ed=S.editEmp==='new'?{name:'',func:'',role:'ma',leadId:u.id,type:'vollzeit',weekHours:40,days:[1,2,3,4,5],vac:30,carry:0,wage:null,entry:TODAY}:S.editEmp?emp(S.editEmp):null;
+  return `<div class="row between">${head('Mitarbeiter','Vertragsdaten je Person. Daraus rechnet das Tool Soll-Zeiten, Mindesturlaub und die Minijob-Grenze.')}${ed?'':'<button class="btn primary" data-act="empNew">Mitarbeiter anlegen</button>'}</div>
+  ${ed?empForm(ed):''}
+  <section class="card"><div class="scroll"><table><thead><tr><th>Name</th><th>Art</th><th class="num">Std./Woche</th><th>Arbeitstage</th><th class="num">Urlaub/Jahr</th><th class="num">Rest</th><th>Vorgesetzte/r</th><th></th></tr></thead><tbody>
+  ${employees.map(e=>`<tr><td><b>${esc(e.name)}</b><div class="muted small">${esc(e.func)} · ${ROLES[e.role]}</div></td><td>${TYPES[e.type]}${e.type==='minijob'?`<div class="muted small mono">${eur(e.wage)}/Std.</div>`:''}</td><td class="num">${num(e.weekHours)}</td><td>${e.days.map(d=>WD[d]).join(' ')}</td><td class="num">${e.vac}${e.carry?` <span class="muted">+${e.carry}</span>`:''}</td><td class="num">${account(e).rest}</td><td>${e.leadId?esc(emp(e.leadId).name):'–'}</td><td><button class="btn sm" data-act="empEdit" data-id="${e.id}">Bearbeiten</button></td></tr>`).join('')}
+  </tbody></table></div></section>`}
+
+/* ---------- Ansicht: Prüfungen ---------- */
+function vPruef(u){const t=team(u),ids=t.map(e=>e.id),fl=allFlags(ids,addDays(TODAY,-42)),ls=lateStats(ids,addDays(TODAY,-42)),minis=t.filter(e=>e.type==='minijob'),miss=t.filter(e=>!notices[e.id]);
+  return `${head('Prüfungen','Alles, was gegen eine Regel verstößt oder eine Frist hat. Zeitraum: die letzten sechs Wochen.')}
+  <div class="tiles"><div class="tile"><small>Verstöße ArbZG / MiLoG</small><b class="${fl.filter(f=>f.lv==='crit').length?'neg':''}">${fl.filter(f=>f.lv==='crit').length}</b></div><div class="tile"><small>Hinweise</small><b>${fl.filter(f=>f.lv==='warn').length}</b></div><div class="tile"><small>Minijob über 90 %</small><b>${minis.filter(e=>['2026-09','2026-10'].some(m=>miniMonth(e,m).pct>=.9)).length}</b></div><div class="tile"><small>Urlaubshinweis fehlt</small><b class="${miss.length?'neg':''}">${miss.length}</b></div></div>
+  <section class="card"><h2>Arbeitszeit</h2><div class="scroll"><table><thead><tr><th>Datum</th><th>Mitarbeiter</th><th>Feststellung</th></tr></thead><tbody>
+    ${fl.map(f=>`<tr><td class="mono" style="white-space:nowrap">${fmtDL(f.date)}</td><td>${esc(emp(f.empId).name)}</td><td>${flagHtml(f)}</td></tr>`).join('')||'<tr><td colspan="3" class="muted">Keine Feststellungen.</td></tr>'}
+  </tbody></table></div></section>
+  <section class="card"><h2>Nachträge</h2><p class="muted small" style="margin:0">Die Stempeluhr nimmt immer die aktuelle Uhrzeit. Wer Zeiten von Hand einträgt, etwa um 10 Uhr einen Beginn um 8 Uhr, erzeugt einen markierten Nachtrag. Einzelne Nachträge sind normal. Auffällig ist, wenn mindestens drei Buchungen und 20 % nachgetragen sind.</p>
+    <div class="scroll"><table><thead><tr><th>Mitarbeiter</th><th class="num">Buchungen</th><th class="num">Nachgetragen</th><th class="num">Anteil</th><th class="num">Ø später erfasst</th><th></th></tr></thead><tbody>
+    ${ls.map(s=>`<tr><td>${esc(emp(s.id).name)}</td><td class="num">${s.n}</td><td class="num">${s.late}</td><td class="num">${Math.round(s.late/s.n*100)} %</td><td class="num">${s.avg!=null?hm(s.avg)+' Std.':'an späterem Tag'}</td><td>${s.late>=3&&s.late/s.n>=.2?'<span class="pill lv-warn">auffällig</span>':''}</td></tr>`).join('')||'<tr><td colspan="6" class="muted">Keine Nachträge im Zeitraum.</td></tr>'}
+    </tbody></table></div></section>
+  ${minis.length?`<section class="card"><h2>Minijob-Grenze ${eur(LIMIT)} je Monat</h2><p class="muted small" style="margin:0">Stunden mal Stundenlohn. Mindestlohn ${YEAR}: ${eur(MINWAGE)}. Ab 01.01.2027 gelten 14,60 € und 633 €.</p>
+    <div class="cols">${minis.map(e=>`<div class="req"><div><b>${esc(e.name)}</b> <span class="muted small">${esc(e.func)}</span></div>${meterHtml(e,'2026-09')}${meterHtml(e,'2026-10')}</div>`).join('')}</div></section>`:''}
+  <section class="card"><div class="row between"><h2>Urlaubshinweis ${YEAR}</h2>${u.role==='admin'&&miss.length?'<button class="btn primary sm" data-act="noticeAll">Allen ohne Hinweis senden</button>':''}</div>
+    <p class="muted small" style="margin:0">Resturlaub verfällt nur, wenn der Arbeitgeber jeden Mitarbeiter konkret über seine Resttage und den Verfall informiert hat (BAG 9 AZR 423/16). Der Versand wird mit Datum protokolliert.</p>
+    <div class="scroll"><table><thead><tr><th>Mitarbeiter</th><th class="num">Rest ${YEAR}</th><th>Hinweis</th><th></th></tr></thead><tbody>
+    ${t.map(e=>`<tr><td>${esc(e.name)}</td><td class="num">${account(e).rest}</td><td>${notices[e.id]?`<span class="pill lv-ok">versendet am ${fmtDY(notices[e.id])}</span>`:'<span class="pill lv-crit">fehlt</span>'}</td><td>${!notices[e.id]&&u.role==='admin'?`<button class="btn sm" data-act="notice" data-id="${e.id}">Hinweis senden</button>`:''}</td></tr>`).join('')}
+    </tbody></table></div></section>`}
+
+/* ---------- Rendern ---------- */
+const VIEWS={heute:vHeute,zeiten:vZeiten,urlaub:vUrlaub,genehm:vGenehm,uebersicht:vUebersicht,mitarbeiter:vMitarbeiter,pruef:vPruef};
+function render(){const u=me();if(!allowed(u,NAV.find(n=>n[0]===S.view)[2]))S.view='heute';
+  $('#userSel').innerHTML=employees.map(e=>`<option value="${e.id}" ${e.id===u.id?'selected':''}>${esc(e.name)} · ${ROLES[e.role]}${e.type==='minijob'?' (Minijob)':''}</option>`).join('');
+  $('#roleTag').innerHTML=`<span class="pill lv-mute">${ROLES[u.role]}</span>`;
+  const oc=openFor(u).length;
+  $('#nav').innerHTML=NAV.filter(n=>allowed(u,n[2])).map(([k,t])=>`<button data-act="nav" data-id="${k}" ${S.view===k?'aria-current="page"':''}>${t}${k==='genehm'&&oc?`<span class="count">${oc}</span>`:''}</button>`).join('');
+  $('#main').innerHTML=VIEWS[S.view](u);
+  const lf=$('#leaveForm');if(lf)LIVE.leaveForm(lf);const ef=$('#empForm');if(ef)LIVE.empForm(ef)}
+
+/* ---------- Aktionen ---------- */
+const ACT={
+  nav:id=>{S.view=id;S.editEmp=null;S.rejectId=null;render()},
+  kommen:()=>{const u=me();put(u.id,TODAY,nowHM(),null,0);render();toast(`Gekommen um ${nowHM()} Uhr.`)},
+  pauseStart:()=>{entryOn(S.user,TODAY).brkStart=nowHM();render()},
+  pauseEnd:()=>{const en=entryOn(S.user,TODAY);en.brk+=Math.max(0,toMin(nowHM())-toMin(en.brkStart));delete en.brkStart;render()},
+  gehen:()=>{const en=entryOn(S.user,TODAY);en.end=fromMin(Math.max(toMin(nowHM()),toMin(en.start)+1));const f=entryFlags(en).filter(x=>x.lv!=='info');render();toast(`Gegangen um ${en.end} Uhr. Arbeitszeit ${hm(net(en))} Std.${f.length?' Hinweis: '+f.map(x=>x.t+' ('+x.p+')').join('; '):''}`)},
+  snooze:()=>{S.snooze=true;render();toast('Für heute keine weitere Erinnerung.')},
+  week:id=>{S.week=+id?addDays(S.week,+id):mondayOf(TODAY);render()},
+  month:id=>{if(!+id)S.calMonth=TODAY.slice(0,7);else{const[y,m]=S.calMonth.split('-').map(Number),d=new Date(y,m-1+ +id,1);S.calMonth=`${d.getFullYear()}-${pad(d.getMonth()+1)}`}render()},
+  uTab:id=>{S.uTab=id;render()},
+  withdraw:id=>{leaves=leaves.filter(l=>l.id!==id);render();toast('Antrag zurückgezogen.')},
+  approve:id=>{const l=leaves.find(x=>x.id===id);Object.assign(l,{status:'genehmigt',by:S.user,decided:TODAY});render();toast(`Urlaub von ${emp(l.empId).name} genehmigt. Die Tage sind abgebucht und im Kalender eingetragen.`)},
+  reject:id=>{S.rejectId=id;render();$('#rj-reason')?.focus()},
+  rejectCancel:()=>{S.rejectId=null;render()},
+  empNew:()=>{S.editEmp='new';render()}, empEdit:id=>{S.editEmp=id;render();$('#empForm')?.scrollIntoView({block:'start',behavior:'smooth'})}, empCancel:()=>{S.editEmp=null;render()},
+  notice:id=>{notices[id]=TODAY;render();toast(`Hinweis an ${emp(id).name} versendet und protokolliert.`)},
+  noticeAll:()=>{let n=0;for(const e of employees)if(!notices[e.id]){notices[e.id]=TODAY;n++}render();toast(`${n} Hinweise versendet und protokolliert.`)}
+};
+const CHG={
+  user:v=>{Object.assign(S,{user:v,view:'heute',zeitEmp:v,week:mondayOf(TODAY),editEmp:null,rejectId:null,fEmp:'alle',fStatus:'alle',snooze:false});render()},
+  zeitEmp:v=>{S.zeitEmp=v;render()}, fStatus:v=>{S.fStatus=v;render()}, fEmp:v=>{S.fEmp=v;render()}
+};
+const LIVE={
+  leaveForm:f=>{const p=leavePreview(me(),$('#uf-from',f).value,$('#uf-to',f).value);$('#leavePrev').textContent=p.msg},
+  empForm:f=>{const c=empCheck(readEmp(f));$('#empHint').innerHTML=c.info.map(esc).join('<br>')+(c.errs.length?`<div class="err" style="margin-top:6px">${c.errs.map(esc).join('<br>')}</div>`:'')}
+};
+const SUB={
+  lateForm:f=>{const e=emp(S.zeitEmp),u=me(),date=$('#lf-date').value,st=$('#lf-start').value,en=$('#lf-end').value,brk=+$('#lf-brk').value,reason=$('#lf-reason').value.trim();
+    if(!date||!st)return fail(f,'Datum und Kommen ausfüllen.');
+    if(date>TODAY)return fail(f,'Das Datum liegt in der Zukunft.');
+    if(!en&&date!==TODAY)return fail(f,'„Gehen“ fehlt. Nur für heute darf es leer bleiben.');
+    if(date===TODAY&&toMin(st)>toMin(nowHM()))return fail(f,'„Kommen“ liegt in der Zukunft.');
+    if(en&&toMin(en)<=toMin(st))return fail(f,'„Gehen“ muss nach „Kommen“ liegen.');
+    if(en&&(brk<0||brk>=toMin(en)-toMin(st)))return fail(f,'Die Pause ist länger als die Anwesenheit.');
+    if(!reason)return fail(f,'Bitte eine Begründung für den Nachtrag angeben.');
+    if(entryOn(e.id,date))return fail(f,'Für diesen Tag gibt es schon eine Buchung. Korrekturen bestehender Buchungen sind im Prototyp nicht enthalten.');
+    put(e.id,date,st,en||null,en?brk:0,{rec:TODAY,recAt:nowHM(),src:e.id===u.id?'Nachtrag':'Nachtrag durch '+u.name,reason});S.week=mondayOf(date);
+    const fl=entryFlags(entryOn(e.id,date)).filter(x=>x.lv!=='info');render();toast(`Nachtrag für ${fmtDL(date)} gespeichert und als Nachtrag markiert.${fl.length?' Hinweis: '+fl.map(x=>x.t+' ('+x.p+')').join('; '):''}`)},
+  leaveForm:f=>{const u=me(),from=$('#uf-from').value,to=$('#uf-to').value,p=leavePreview(u,from,to);
+    if(!p.n)return fail(f,p.msg);if(from<TODAY)return fail(f,'Urlaub kann nur für kommende Tage beantragt werden.');
+    if(!p.ok)return fail(f,'Der Antrag übersteigt dein Urlaubskonto.');
+    if(leaves.some(l=>l.empId===u.id&&l.status!=='abgelehnt'&&l.from<=to&&l.to>=from))return fail(f,'In diesem Zeitraum hast du schon einen Antrag.');
+    const auto=!u.leadId;leaves.push({id:'u'+seq++,empId:u.id,from,to,status:auto?'genehmigt':'offen',note:$('#uf-note').value.trim(),created:TODAY,by:auto?u.id:null,reason:''});
+    render();toast(auto?'Urlaub eingetragen.':`Antrag über ${p.n} ${p.n===1?'Tag':'Tage'} an ${emp(u.leadId).name} gesendet.`)},
+  rejectForm:f=>{const reason=$('#rj-reason').value.trim();if(reason.length<10)return fail(f,'Bitte den betrieblichen Grund nennen (mindestens ein Satz).');
+    const l=leaves.find(x=>x.id===f.dataset.id);Object.assign(l,{status:'abgelehnt',by:S.user,decided:TODAY,reason});S.rejectId=null;render();toast(`Antrag von ${emp(l.empId).name} abgelehnt. Die Begründung ist beim Antrag sichtbar.`)},
+  empForm:f=>{const v=readEmp(f),c=empCheck(v);if(c.errs.length)return fail(f,'Bitte die markierten Punkte oben korrigieren.');
+    if(S.editEmp==='new'){const id='n'+seq++;employees.push({id,...v});notices[id]=null}else Object.assign(emp(S.editEmp),v);
+    S.editEmp=null;render();toast(`${v.name} gespeichert.`)}
+};
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-act]');if(b&&ACT[b.dataset.act])ACT[b.dataset.act](b.dataset.id)});
+document.addEventListener('change',ev=>{const k=ev.target.dataset.chg;if(k)CHG[k](ev.target.value)});
+document.addEventListener('submit',ev=>{ev.preventDefault();const f=ev.target;if(SUB[f.id])SUB[f.id](f)});
+document.addEventListener('input',ev=>{const f=ev.target.closest('form');if(f&&LIVE[f.id])LIVE[f.id](f)});
+setInterval(()=>{const c=$('#clock');if(c)c.textContent=nowHM();const el=$('#elapsed');if(el)el.textContent=hm(workedToday(entryOn(S.user,TODAY)))},20000);
+render();
+</script>
+</body>
+</html>

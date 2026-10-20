@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgresql://asos:asos-ci@localhost:5432/asos_test
+      DATABASE_URL: postgresql://asos:asos-ci@localhost:5432/asos_test
+      AUTH_PEPPER: ci-only-pepper-0123456789abcdef0123456789
+      APP_ORIGIN: http://localhost:4200
+      WEBAUTHN_RP_ID: localhost
+      SMTP_HOST: localhost
+      SMTP_PORT: '1025'
+      NX_DAEMON: 'false'
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: asos
+          POSTGRES_PASSWORD: asos-ci
+          POSTGRES_DB: asos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U asos -d asos_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm nx run-many -t lint typecheck test test-int build --outputStyle=static
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: check
+    env:
+      CI: 'true'
+      NX_DAEMON: 'false'
+      DATABASE_URL: postgresql://asos:asos-ci@localhost:5432/asos_test
+      E2E_DATABASE_URL: postgresql://asos:asos-ci@localhost:5432/asos_e2e
+      E2E_MAILPIT_URL: http://localhost:8025
+      E2E_SMTP_PORT: '1025'
+      AUTH_PEPPER: ci-only-pepper-0123456789abcdef0123456789
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: asos
+          POSTGRES_PASSWORD: asos-ci
+          POSTGRES_DB: asos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U asos -d asos_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm nx run e2e:e2e --outputStyle=static
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  container:
+    runs-on: ubuntu-24.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: docker build -f apps/api/Dockerfile -t asos-api:ci .
+      - run: docker build -f apps/web/Dockerfile -t asos-web:ci .
+      - name: Container starten
+        run: |
+          docker run -d --name web -p 18080:8080 asos-web:ci
+          docker run -d --name api -p 13000:3000 \
+            -e DATABASE_URL=postgresql://asos:unused@localhost:5432/unused \
+            -e APP_ORIGIN=http://localhost:18080 -e WEBAUTHN_RP_ID=localhost \
+            -e AUTH_PEPPER=ci-only-pepper-0123456789abcdef0123456789 \
+            -e SMTP_HOST=localhost -e SMTP_PORT=1025 asos-api:ci
+          for i in $(seq 1 30); do curl -sf localhost:13000/api/health && break; sleep 1; done
+      - run: node tools/scripts/container-smoke.mjs
+      - if: failure()
+        run: docker logs api; docker logs web

@@ -1,0 +1,471 @@
+/*
+ * Theme aus prototype/index.html: Farben als Tokens, hell und dunkel.
+ * Schriften lokal gebündelt (CLAUDE.md: nichts von externen Servern laden).
+ */
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-400.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-500.css';
+@import '@fontsource/ibm-plex-sans/latin-ext-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --bg: #f2f5f4;
+  --surface: #ffffff;
+  --surface-2: #e8eeec;
+  --line: #d2dbd8;
+  --fg: #15201d;
+  --muted: #586964;
+  --accent: #0b6e63;
+  --accent-fg: #ffffff;
+  --accent-soft: #d5ebe7;
+  --ok: #1c7439;
+  --ok-soft: #ddf0e2;
+  --warn: #8f5400;
+  --warn-soft: #fbebcb;
+  --crit: #b3261e;
+  --crit-soft: #f9dcd9;
+  --info: #2a5d9f;
+  --info-soft: #dce8f8;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f1514;
+    --surface: #17201f;
+    --surface-2: #202b29;
+    --line: #2e3c39;
+    --fg: #e5eeeb;
+    --muted: #93a39e;
+    --accent: #4fc4b4;
+    --accent-fg: #06211d;
+    --accent-soft: #163833;
+    --ok: #6fcf8b;
+    --ok-soft: #163221;
+    --warn: #f0b455;
+    --warn-soft: #392b0f;
+    --crit: #ff8a80;
+    --crit-soft: #401f1c;
+    --info: #8ab6ee;
+    --info-soft: #1a2b43;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1514;
+  --surface: #17201f;
+  --surface-2: #202b29;
+  --line: #2e3c39;
+  --fg: #e5eeeb;
+  --muted: #93a39e;
+  --accent: #4fc4b4;
+  --accent-fg: #06211d;
+  --accent-soft: #163833;
+  --ok: #6fcf8b;
+  --ok-soft: #163221;
+  --warn: #f0b455;
+  --warn-soft: #392b0f;
+  --crit: #ff8a80;
+  --crit-soft: #401f1c;
+  --info: #8ab6ee;
+  --info-soft: #1a2b43;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-crit: var(--crit);
+  --color-crit-soft: var(--crit-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --radius-ui: 5px;
+  --radius-card: 6px;
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+  }
+  body {
+    @apply m-0 bg-bg font-sans text-[15px] leading-normal text-fg;
+  }
+  h1 {
+    @apply m-0 text-2xl font-semibold tracking-[-0.01em] text-balance;
+  }
+  h2 {
+    @apply m-0 text-base font-semibold;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-x: none;
+  }
+  /* Schublade offen: Hintergrund scrollt nicht mit (iOS). */
+  html:has(dialog[open]) {
+    overflow: hidden;
+  }
+  /* Datums- und Uhrzeitfelder haben in iOS eine eigene Mindestbreite (Review Focus 5). */
+  input[type='date'],
+  input[type='time'],
+  input[type='month'] {
+    min-width: 0;
+  }
+  :is(button, select, input, textarea, a):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  select,
+  input,
+  textarea {
+    @apply max-w-full rounded-ui border border-line bg-surface px-[9px] py-[7px] text-fg;
+    font: inherit;
+  }
+  /* Unter 16 px zoomt iOS beim Antippen hinein (Befund B5). Nach `font: inherit`, sonst wirkungslos
+     (Review Design, Befund 2). */
+  @media (max-width: 1023.98px) {
+    select,
+    input,
+    textarea {
+      font-size: 16px;
+    }
+  }
+}
+
+/* Bausteine wie im Prototyp, damit Komponenten kurz bleiben. */
+@layer components {
+  .card {
+    @apply flex min-w-0 flex-col gap-3.5 rounded-card border border-line bg-surface p-[18px];
+  }
+  .lead {
+    @apply mt-1 mb-0 max-w-[68ch] text-muted;
+  }
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-ui border border-line bg-surface px-3.5 py-2 text-sm font-medium text-fg no-underline hover:border-muted disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  @media (pointer: coarse) {
+    .btn {
+      min-height: 44px;
+    }
+  }
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-fg hover:border-accent;
+  }
+  .btn-danger {
+    @apply border-crit text-crit;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1 text-[13px];
+  }
+  .btn-big {
+    @apply px-[22px] py-3 text-base;
+  }
+  .fields {
+    @apply grid items-end gap-x-3.5 gap-y-3;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  .field {
+    @apply flex min-w-0 flex-col gap-1 text-[13px] text-muted;
+  }
+  .lbl {
+    @apply text-[11.5px] tracking-[0.06em] text-muted uppercase;
+  }
+  .hint {
+    @apply rounded-ui bg-surface-2 px-3 py-2.5 text-[13.5px];
+  }
+  .err {
+    @apply text-[13.5px] font-medium text-crit;
+  }
+  .pill {
+    @apply my-px mr-1 inline-flex items-baseline gap-1.5 rounded-full px-[9px] py-px text-[12.5px] font-medium;
+  }
+  .pill .par {
+    @apply font-mono text-[11px] whitespace-nowrap opacity-85;
+  }
+  .lv-crit {
+    @apply bg-crit-soft text-crit;
+  }
+  .lv-warn {
+    @apply bg-warn-soft text-warn;
+  }
+  .lv-info {
+    @apply bg-info-soft text-info;
+  }
+  .lv-ok {
+    @apply bg-ok-soft text-ok;
+  }
+  .lv-mute {
+    @apply bg-surface-2 text-muted;
+  }
+  .tiles {
+    @apply grid gap-px overflow-hidden rounded-card border border-line bg-line;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  .tile {
+    @apply flex flex-col gap-0.5 bg-surface px-3.5 py-3;
+  }
+  .tile b {
+    @apply font-mono text-[22px] font-medium tabular-nums;
+  }
+  .data-table {
+    @apply w-full border-collapse tabular-nums;
+  }
+  .data-table th {
+    @apply border-b border-line px-2.5 py-1.5 text-left text-[11.5px] font-medium tracking-[0.06em] whitespace-nowrap text-muted uppercase;
+  }
+  .data-table td {
+    @apply border-b border-line px-2.5 py-2 align-top;
+  }
+  /* Screenreader-Texte (absolut positioniert) bleiben in ihrer Zelle und im Scrollbereich. */
+  .data-table th,
+  .data-table td {
+    @apply relative;
+  }
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+  .data-table .num {
+    @apply text-right font-mono whitespace-nowrap;
+  }
+  .data-table th.num {
+    @apply font-sans;
+  }
+  .row-toggle {
+    @apply inline-flex size-11 cursor-pointer items-center justify-center rounded-ui text-muted hover:bg-surface-2 hover:text-fg;
+  }
+  .details {
+    @apply m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[14px];
+  }
+  .details dt {
+    @apply text-muted;
+  }
+  .details dd {
+    @apply m-0 min-w-0 break-words;
+  }
+}
+
+/* Abwesenheitskalender nach prototype/index.html. */
+.cal {
+  width: auto;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+.cal th,
+.cal td {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+.cal th.d {
+  min-width: 27px;
+  padding: 4px 0;
+  text-align: center;
+  font: 11px var(--font-mono);
+}
+.cal th.d b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.cal td.d {
+  height: 32px;
+  border-left: 1px solid var(--line);
+}
+/* Sonst gehören die absolut positionierten Screenreader-Texte zu einem Container außerhalb des
+   Scrollbereichs und verbreitern die Seite (Abnahmetest auf 768 px). */
+.cal th.d,
+.cal td.d {
+  position: relative;
+}
+.cal .n {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  padding: 4px 14px 4px 0;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.cal .we,
+.cal-legend .we {
+  background: var(--surface-2);
+}
+.cal .hol,
+.cal-legend .hol {
+  background: var(--info-soft);
+}
+.cal .off,
+.cal-legend .off {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface-2) 4px 6px);
+}
+.cal .today {
+  box-shadow:
+    inset 2px 0 0 var(--fg),
+    inset -2px 0 0 var(--fg);
+}
+.cal .an,
+.cal-legend .an {
+  background: var(--warn-soft);
+  color: var(--warn);
+  text-align: center;
+  font: 500 12.5px var(--font-mono);
+}
+.cal-absence {
+  display: block;
+  height: 16px;
+}
+.cal .ap,
+.cal-legend .ap {
+  background: var(--accent);
+}
+.cal .op,
+.cal-legend .op {
+  background: var(--accent-soft);
+  border-block: 2px dashed var(--accent);
+}
+.cal .half {
+  width: 50%;
+}
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cal-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 12px;
+}
+.cal-legend .half {
+  background: linear-gradient(to right, var(--accent) 50%, transparent 50%);
+}
+
+/* Jede Seite stapelt ihre Karten mit gleichem Abstand (Befund B6), auch ohne eigene Host-Klasse. */
+main > :not(router-outlet) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Formulare unter 640 px einspaltig (Spezifikation Design, Abschnitt 6). */
+@media (max-width: 639.98px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Tabellen auf schmalen Bildschirmen (Spezifikation Design, Abschnitt 4). */
+@media (max-width: 639.98px) {
+  .data-table .col-opt {
+    display: none;
+  }
+  .data-table th,
+  .data-table td {
+    padding-inline: 6px;
+  }
+  /* Lange Wörter in Textzellen dürfen umbrechen; Köpfe und Pillen nur zwischen Wörtern, Zahlen nie.
+     Karten mit etwas weniger Innenabstand, damit Tabellen auf 320 px Platz haben. */
+  .data-table td:not(.num) {
+    overflow-wrap: anywhere;
+  }
+  .data-table th {
+    overflow-wrap: normal;
+    white-space: normal;
+  }
+  .data-table td.num {
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+  .card {
+    padding: 14px;
+  }
+  .data-table .pill {
+    flex-wrap: wrap;
+  }
+  .data-table .pill,
+  .data-table .pill .par {
+    overflow-wrap: normal;
+    white-space: normal;
+  }
+  .data-table td.col-narrow:has(> app-row-toggle) {
+    width: 44px;
+    padding: 0;
+    vertical-align: middle;
+  }
+  .data-table tr:has(+ .row-details) td {
+    border-bottom: 0;
+  }
+  .data-table .row-details td {
+    padding: 4px 6px 14px;
+  }
+}
+@media (min-width: 640px) {
+  .data-table .col-narrow,
+  .data-table .row-details {
+    display: none;
+  }
+}
+
+/* Menü-Schublade (Spezifikation Design, Abschnitt 3). */
+.drawer {
+  margin: 0;
+  inset: 0 auto 0 0;
+  width: min(300px, 85vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left);
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.drawer::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+.drawer[open] {
+  animation: drawer-in 180ms ease-out;
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer[open] {
+    animation: none;
+  }
+}

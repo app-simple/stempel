@@ -1,0 +1,596 @@
+// Datenmodell Modul Zeit & Urlaub, Phase 1 (docs/specs/phase-1-fundament.md, Abschnitt 4).
+// Zeitpunkte als timestamptz in UTC, Kalendertage als date (lokales Datum Europe/Berlin).
+// Geld in Cent, Arbeitszeit in Minuten. Zusätzliche CHECK-Constraints und der Schutz des
+// AuditLog stehen als SQL in der Migration.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "cjs"
+  runtime                = "nodejs"
+  importFileExtension    = ""
+  generatedFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  EMPLOYEE
+  LEAD
+  ADMIN
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  MINIJOB
+}
+
+enum LoginMethod {
+  EMAIL_CODE
+  PASSKEY
+}
+
+enum ChallengePurpose {
+  PASSKEY_REGISTRATION
+  PASSKEY_LOGIN
+}
+
+enum LegalParameterKey {
+  MIN_WAGE_HOURLY_CENTS
+  MINIJOB_MONTHLY_LIMIT_CENTS
+}
+
+enum HolidayOrigin {
+  STATUTORY
+  MANUAL
+}
+
+model Employee {
+  id                    String    @id @default(uuid()) @db.Uuid
+  name                  String
+  jobTitle              String?
+  role                  Role      @default(EMPLOYEE)
+  /// Anmeldeadresse, klein geschrieben. Nur Admin sieht und ändert sie; der Mitarbeiter liest seine eigene.
+  loginEmail            String    @unique
+  leadId                String?   @db.Uuid
+  /// Vertretung des Vorgesetzten (Konzept Abschnitt 3). Rechte folgen in Phase 3.
+  deputyId              String?   @db.Uuid
+  entryDate             DateTime  @db.Date
+  /// Ab dem Folgetag (Europe/Berlin) ist keine Anmeldung mehr möglich.
+  exitDate              DateTime? @db.Date
+  /// Manuelle Sperre durch den Admin, unabhängig vom Austritt.
+  lockedAt              DateTime? @db.Timestamptz(3)
+  /// Überstundenkonto ab diesem Tag (Phase 2, Entscheidung 7); null = kein Konto.
+  overtimeAccountSince  DateTime? @db.Date
+  /// Erinnerungen per E-Mail, wenn kein Gerät für Push angemeldet ist (Phase 5, Entscheidung 5)
+  reminderEmailFallback Boolean   @default(true)
+  /// AU schon ab dem 1. Krankheitstag verlangen (§ 5 Abs. 1 Satz 3 EFZG, Phase 6), nur vom Admin änderbar
+  certificateFromDay1   Boolean   @default(false)
+  /// Geburtsdatum für den Jugendarbeitsschutz (Phase 7), nur für den Admin sichtbar
+  birthDate             DateTime? @db.Date
+  /// Letzter Tag der Vollzeitschulpflicht (§ 2 Abs. 3 JArbSchG, Phase 7), nur für den Admin sichtbar
+  fullTimeSchoolUntil   DateTime? @db.Date
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  lead                Employee?            @relation("Lead", fields: [leadId], references: [id], onDelete: Restrict)
+  reports             Employee[]           @relation("Lead")
+  deputy              Employee?            @relation("Deputy", fields: [deputyId], references: [id], onDelete: Restrict)
+  deputyFor           Employee[]           @relation("Deputy")
+  terms               EmploymentTerms[]
+  carryOvers          LeaveCarryOver[]
+  loginCodes          LoginCode[]
+  passkeys            Passkey[]
+  sessions            Session[]
+  timeEntries         TimeEntry[]
+  monthClosings       MonthClosing[]
+  overtimeAdjustments OvertimeAdjustment[]
+  leaveRequests       LeaveRequest[]
+  leaveLedger         LeaveLedgerEntry[]
+  leaveNotices        LeaveNotice[]
+  pushSubscriptions   PushSubscription[]
+  reminderLogs        ReminderLog[]
+  sickLeaves          SickLeave[]
+
+  @@index([leadId])
+}
+
+/// Vertragsstand ab Stichtag. Geltende und vergangene Stände sind unveränderlich.
+model EmploymentTerms {
+  id              String         @id @default(uuid()) @db.Uuid
+  employeeId      String         @db.Uuid
+  validFrom       DateTime       @db.Date
+  type            EmploymentType
+  weeklyMinutes   Int
+  /// ISO-Wochentage 1 (Mo) bis 6 (Sa)
+  workDays        Int[]
+  annualLeaveDays Int
+  /// Zusatzurlaub als Zahl ohne Grund
+  extraLeaveDays  Int            @default(0)
+  /// Nur bei Minijob, sonst null
+  hourlyWageCents Int?
+  createdAt       DateTime       @default(now()) @db.Timestamptz(3)
+  createdById     String?        @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, validFrom])
+}
+
+/// Übertrag aus dem Vorjahr, je Mitarbeiter und Zieljahr.
+model LeaveCarryOver {
+  id          String   @id @default(uuid()) @db.Uuid
+  employeeId  String   @db.Uuid
+  year        Int
+  days        Int
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  updatedById String?  @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, year])
+}
+
+/// Bearbeitbare Feiertagsliste. Gesetzliche Tage werden abgeschaltet statt gelöscht.
+model Holiday {
+  id           String        @id @default(uuid()) @db.Uuid
+  date         DateTime      @db.Date
+  name         String
+  state        String        @default("BY")
+  municipality String?
+  origin       HolidayOrigin
+  /// Schlüssel aus libs/time-rules bei gesetzlichen Feiertagen, sonst null
+  key          String?
+  active       Boolean       @default(true)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@unique([state, date, name])
+  @@index([state, date])
+}
+
+/// Betriebseinstellungen, genau eine Zeile mit id = 1.
+model CompanySettings {
+  id                     Int      @id @default(1)
+  state                  String   @default("BY")
+  /// Mariä Himmelfahrt am Betriebssitz Feiertag (entschieden am 12.10.2026)
+  assumptionDayIsHoliday Boolean  @default(true)
+  /// Löschjob nach Aufbewahrungsfristen (Phase 4, Entscheidung 6); aus, bis der Steuerberater die Fristen bestätigt.
+  retentionEnabled       Boolean  @default(false)
+  /// Aufbewahrung in Jahren ab Ende des Kalenderjahres, mindestens 2 (§ 16 Abs. 2 ArbZG, § 17 Abs. 1 MiLoG)
+  retentionTimeYears     Int      @default(2)
+  /// Minijob-Zeiten als Lohnunterlagen
+  retentionPayrollYears  Int      @default(8)
+  retentionLeaveYears    Int      @default(3)
+  retentionAuditYears    Int      @default(3)
+  /// Standardzeit für die Erinnerung bei weniger als drei Stempelzeiten (Phase 5, Entscheidung 3), HH:MM
+  reminderDefaultStart   String   @default("08:00")
+  /// Auswertung der Nachträge (Phase 5, Entscheidung 8)
+  lateFlagMinCount       Int      @default(3)
+  lateFlagMinPercent     Int      @default(20)
+  lateFlagWeeks          Int      @default(6)
+  updatedAt              DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// Gesetzliche Werte mit Gültigkeitsdatum. Werte in Cent.
+model LegalParameter {
+  id        String            @id @default(uuid()) @db.Uuid
+  key       LegalParameterKey
+  value     Int
+  validFrom DateTime          @db.Date
+  source    String
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+
+  @@unique([key, validFrom])
+}
+
+model LoginCode {
+  id             String    @id @default(uuid()) @db.Uuid
+  employeeId     String    @db.Uuid
+  /// HMAC-SHA256 mit Server-Pepper, nie der Code selbst
+  codeHash       String
+  expiresAt      DateTime  @db.Timestamptz(3)
+  failedAttempts Int       @default(0)
+  usedAt         DateTime? @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+}
+
+model Passkey {
+  id           String    @id @default(uuid()) @db.Uuid
+  employeeId   String    @db.Uuid
+  /// base64url
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      BigInt
+  transports   String[]
+  deviceType   String
+  backedUp     Boolean
+  name         String
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  lastUsedAt   DateTime? @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model Session {
+  id           String      @id @default(uuid()) @db.Uuid
+  employeeId   String      @db.Uuid
+  /// SHA-256 des Cookie-Tokens
+  tokenHash    String      @unique
+  method       LoginMethod
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  lastActiveAt DateTime    @default(now()) @db.Timestamptz(3)
+  expiresAt    DateTime    @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([expiresAt])
+}
+
+/// WebAuthn-Challenge zwischen Optionen und Prüfung.
+model AuthChallenge {
+  id         String           @id @default(uuid()) @db.Uuid
+  challenge  String
+  purpose    ChallengePurpose
+  employeeId String?          @db.Uuid
+  expiresAt  DateTime         @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}
+
+/// Zähler je Schlüssel und Zeitfenster. Der Schlüssel ist ein HMAC, keine Adresse und keine IP im Klartext.
+model RateLimitHit {
+  key         String
+  windowStart DateTime @db.Timestamptz(3)
+  count       Int
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}
+
+/// Append-only, ein Trigger lehnt UPDATE und DELETE ab.
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  at         DateTime @default(now()) @db.Timestamptz(3)
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String?
+  entityId   String?
+  details    Json?
+
+  @@index([entityType, entityId])
+  @@index([at])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Zeiterfassung (docs/specs/phase-2-zeiterfassung.md)
+// ---------------------------------------------------------------------------
+
+enum TimeEntrySource {
+  CLOCK
+  MANUAL
+}
+
+enum CorrectionKind {
+  CORRECT
+  VOID
+}
+
+enum CorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+/// Arbeitszeitbuchung. Nie gelöscht; Änderungen nur mit Revision, ungültige Buchungen über voidedAt.
+model TimeEntry {
+  id           String          @id @default(uuid()) @db.Uuid
+  employeeId   String          @db.Uuid
+  /// Lokales Datum des Beginns in Europe/Berlin
+  workDate     DateTime        @db.Date
+  startAt      DateTime        @db.Timestamptz(3)
+  /// null = läuft noch
+  endAt        DateTime?       @db.Timestamptz(3)
+  source       TimeEntrySource
+  /// Erfassungszeitpunkt (Serverzeit)
+  recordedAt   DateTime        @db.Timestamptz(3)
+  recordedById String          @db.Uuid
+  /// Pflicht bei Nachtrag
+  reason       String?
+  voidedAt     DateTime?       @db.Timestamptz(3)
+
+  employee    Employee                @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  breaks      TimeEntryBreak[]
+  revisions   TimeEntryRevision[]
+  corrections TimeCorrectionRequest[]
+
+  @@index([employeeId, workDate])
+}
+
+/// Pause als Zeitraum (Entscheidung 2)
+model TimeEntryBreak {
+  id      String    @id @default(uuid()) @db.Uuid
+  entryId String    @db.Uuid
+  startAt DateTime  @db.Timestamptz(3)
+  /// null = Pause läuft
+  endAt   DateTime? @db.Timestamptz(3)
+
+  entry TimeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+}
+
+/// Append-only, ein Trigger lehnt UPDATE und DELETE ab.
+model TimeEntryRevision {
+  id          BigInt   @id @default(autoincrement())
+  entryId     String   @db.Uuid
+  changedAt   DateTime @default(now()) @db.Timestamptz(3)
+  changedById String   @db.Uuid
+  reason      String
+  before      Json
+  after       Json
+
+  entry TimeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+}
+
+/// Korrekturantrag der betroffenen Person (Entscheidung 4, Variante B)
+model TimeCorrectionRequest {
+  id             String           @id @default(uuid()) @db.Uuid
+  entryId        String           @db.Uuid
+  kind           CorrectionKind
+  /// Beginn, Ende, Pausen bei CORRECT
+  proposed       Json?
+  reason         String
+  requestedById  String           @db.Uuid
+  requestedAt    DateTime         @db.Timestamptz(3)
+  status         CorrectionStatus @default(PENDING)
+  decidedById    String?          @db.Uuid
+  decidedAt      DateTime?        @db.Timestamptz(3)
+  /// Pflicht bei Ablehnung
+  decisionReason String?
+
+  entry TimeEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+}
+
+/// Monatsabschluss durch die Person (Entscheidung 6)
+model MonthClosing {
+  employeeId   String    @db.Uuid
+  /// JJJJ-MM
+  month        String
+  confirmedAt  DateTime  @db.Timestamptz(3)
+  reopenedAt   DateTime? @db.Timestamptz(3)
+  reopenedById String?   @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@id([employeeId, month])
+}
+
+/// Korrekturbuchung am Überstundenkonto (Entscheidung 7), append-only
+model OvertimeAdjustment {
+  id          String   @id @default(uuid()) @db.Uuid
+  employeeId  String   @db.Uuid
+  minutes     Int
+  effectiveOn DateTime @db.Date
+  reason      String
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+}
+
+enum AbsenceType {
+  VACATION
+  OVERTIME_OFF
+  SPECIAL_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  CANCELLED
+}
+
+enum LeaveLedgerKind {
+  CORRECTION
+  /// Verfall nach Urlaubshinweis, ab Phase 4
+  FORFEIT
+  /// Rückbuchung nach § 9 BUrlG für Krankheit mit AU im Urlaub (Phase 6)
+  SICK_CREDIT
+}
+
+/// Abwesenheitsantrag (Phase 3). Wird nie gelöscht; Kernfelder und Statuswechsel per Trigger geschützt.
+model LeaveRequest {
+  id                String      @id @default(uuid()) @db.Uuid
+  employeeId        String      @db.Uuid
+  type              AbsenceType
+  from              DateTime    @db.Date
+  to                DateTime    @db.Date
+  /// Erster Tag nur halb (Entscheidung 2)
+  startHalf         Boolean     @default(false)
+  /// Letzter Tag nur halb
+  endHalf           Boolean     @default(false)
+  /// Beim Antrag berechnete Tage in halben Tagen (Entscheidung 14)
+  halfDays          Int
+  /// Freiwillige Notiz, höchstens 140 Zeichen
+  note              String?
+  status            LeaveStatus @default(PENDING)
+  requestedAt       DateTime    @db.Timestamptz(3)
+  /// Die Person selbst, ihre Vorgesetzte oder der Admin (Entscheidung 6)
+  requestedById     String      @db.Uuid
+  decidedAt         DateTime?   @db.Timestamptz(3)
+  decidedById       String?     @db.Uuid
+  /// Pflicht bei Ablehnung
+  decisionReason    String?
+  /// Einverständnis des Mitarbeiters zur Stornierung (Entscheidung 9)
+  cancelRequestedAt DateTime?   @db.Timestamptz(3)
+  cancelledAt       DateTime?   @db.Timestamptz(3)
+  cancelledById     String?     @db.Uuid
+  /// Meldung an den Admin nach fünf Arbeitstagen (Entscheidung 12)
+  overdueNotifiedAt DateTime?   @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, from])
+  @@index([status])
+}
+
+/// Korrekturbuchung am Urlaubskonto (Entscheidung 10), append-only
+model LeaveLedgerEntry {
+  id          String          @id @default(uuid()) @db.Uuid
+  employeeId  String          @db.Uuid
+  year        Int
+  kind        LeaveLedgerKind
+  /// Halbe Tage mit Vorzeichen
+  halfDays    Int
+  /// Neutraler Vermerk ohne Gesundheitsangaben
+  note        String
+  createdById String          @db.Uuid
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  /// Bezug einer Rückbuchung (SICK_CREDIT); ohne Fremdschlüssel, damit die Buchung die Krankmeldung überdauert
+  sickLeaveId String?         @db.Uuid
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, year])
+  @@index([sickLeaveId])
+}
+
+/// Jährlicher Urlaubshinweis in Textform (Phase 4, Entscheidungen 2 und 3a; BAG 9 AZR 423/16).
+/// Unveränderlich bis auf die einmalige Lesebestätigung.
+model LeaveNotice {
+  id           String    @id @default(uuid()) @db.Uuid
+  employeeId   String    @db.Uuid
+  /// Urlaubsjahr, auf das sich der Hinweis bezieht
+  year         Int
+  /// Rest zum Zeitpunkt des Hinweises in halben Tagen
+  restHalfDays Int
+  /// Versendeter Wortlaut
+  text         String
+  sentAt       DateTime  @db.Timestamptz(3)
+  sentById     String    @db.Uuid
+  /// Zustellung per E-Mail (Befund 8); null = nur in der Anwendung bereitgestellt
+  emailSentAt  DateTime? @db.Timestamptz(3)
+  readAt       DateTime? @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, year])
+}
+
+enum ReminderKind {
+  CLOCK_IN
+  CLOCK_OUT
+  MINIJOB_RECORDING
+  /// AU fällig, aber nicht vermerkt (Phase 6)
+  CERTIFICATE
+  /// Jugendliche: Pause bald fällig (Phase 7)
+  YOUTH_BREAK
+  /// Jugendliche: Feierabend bald fällig (Phase 7)
+  YOUTH_END
+}
+
+/// Art einer Krankmeldung (Phase 6). NEUTRAL nach Ablauf der Löschfrist: nur noch „abwesend“.
+enum SickKind {
+  SICK
+  CHILD_SICK
+  NEUTRAL
+}
+
+/// Krankmeldung (Phase 6). Nur Art, Zeitraum, Uhrzeit des Heimgehens und AU-Vermerk; nie Gründe.
+model SickLeave {
+  id               String    @id @default(uuid()) @db.Uuid
+  employeeId       String    @db.Uuid
+  kind             SickKind
+  from             DateTime  @db.Date
+  /// Voraussichtliches bzw. tatsächliches Ende (inklusive)
+  to               DateTime  @db.Date
+  /// Minute des Tages (Europe/Berlin), ab der am ersten Tag krank (Heimgehen); null = ganzer Tag
+  sinceMinute      Int?
+  reportedAt       DateTime  @db.Timestamptz(3)
+  /// Person selbst, Vorgesetzte oder Admin; nach der Löschfrist null
+  reportedById     String?   @db.Uuid
+  /// AU-Vermerk „AU liegt vor bis …“
+  certificateUntil DateTime? @db.Date
+  certificateAt    DateTime? @db.Timestamptz(3)
+  certificateById  String?   @db.Uuid
+  /// „Wieder gesund“ gemeldet
+  endedAt          DateTime? @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@index([employeeId, from])
+}
+
+enum ReminderChannel {
+  PUSH
+  EMAIL
+}
+
+/// Web-Push-Anmeldung je Gerät (Phase 5, Konzept 5). Endpunkt und Schlüssel nie in Logs.
+model PushSubscription {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeId    String    @db.Uuid
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  deviceName    String
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+  lastSuccessAt DateTime? @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+/// Gesendete Erinnerungen (Phase 5, Konzept 5). Eindeutig je Person, Bezugstag, Art und Stufe:
+/// So geht nichts doppelt raus, auch bei mehreren Instanzen. Stufe 0 = „Heute nicht erinnern“.
+model ReminderLog {
+  id         String           @id @default(uuid()) @db.Uuid
+  employeeId String           @db.Uuid
+  /// Bezugstag in Europe/Berlin (Erinnerungstag bzw. bei Minijob der nicht aufgezeichnete Arbeitstag)
+  date       DateTime         @db.Date
+  kind       ReminderKind
+  stage      Int
+  /// null = nichts gesendet (stummgeschaltet oder kein Kanal)
+  channel    ReminderChannel?
+  sentAt     DateTime?        @db.Timestamptz(3)
+  muted      Boolean          @default(false)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, date, kind, stage])
+}
+
+/// Schulferien (Bayern) für den Jugendarbeitsschutz (Phase 7). Keine personenbezogenen Daten.
+model SchoolHoliday {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  from      DateTime @db.Date
+  to        DateTime @db.Date
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Derselbe Zeitraum nur einmal, auch bei parallelem Übernehmen der Vorlage.
+  @@unique([from, to])
+  @@index([from])
+}

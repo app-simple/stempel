@@ -1,0 +1,9 @@
+/dist
+/coverage
+/.nx/cache
+/.nx/workspace-data
+/.angular
+pnpm-lock.yaml
+prototype/
+apps/api/src/generated
+*.md
